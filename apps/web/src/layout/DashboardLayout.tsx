@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import "../styles/dashboard.css";
 
 type DashboardLayoutProps = {
   authed: boolean;
-  isAdmin: boolean;
   onLogout: () => void;
 };
 
-export default function DashboardLayout({ authed, isAdmin, onLogout }: DashboardLayoutProps) {
+export default function DashboardLayout({ authed, onLogout }: DashboardLayoutProps) {
   const [open, setOpen] = useState(false);
 
   const closeDrawer = () => setOpen(false);
@@ -50,6 +49,13 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
             onClick={closeDrawer}
           >
             Teams
+          </NavLink>
+          <NavLink
+            to="/posts"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeDrawer}
+          >
+            Posts
           </NavLink>
           {!authed && (
             <NavLink

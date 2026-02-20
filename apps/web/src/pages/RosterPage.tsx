@@ -42,7 +42,6 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
     created: number;
@@ -236,7 +235,6 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
     try {
       const result = await importRosterCsv(id, file);
       setImportResult(result);
-      setCsvFile(null);
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
       if (err instanceof AuthError) {
@@ -295,7 +293,6 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
               disabled={importing}
               onChange={(event) => {
                 const file = event.target.files?.[0] ?? null;
-                setCsvFile(file);
                 if (file) handleCsvImport(file);
               }}
             />

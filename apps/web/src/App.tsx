@@ -5,6 +5,7 @@ import DashboardLayout from "./layout/DashboardLayout";
 import TeamsPage from "./pages/TeamsPage";
 import GamesPage from "./pages/GamesPage";
 import RosterPage from "./pages/RosterPage";
+import PostsPage from "./pages/PostsPage";
 import { clearToken, getTokenClaims, isAdminClaim, onUnauthorized, getToken } from "./api";
 
 type AuthState = {
@@ -64,7 +65,6 @@ export default function App() {
         element={
           <DashboardLayout
             authed={auth.authed}
-            isAdmin={auth.isAdmin}
             onLogout={handleLogout}
           />
         }
@@ -95,6 +95,10 @@ export default function App() {
               onAuthError={handleAuthError}
             />
           }
+        />
+        <Route
+          path="posts"
+          element={<PostsPage isAdmin={auth.isAdmin} onAuthError={handleAuthError} />}
         />
         <Route
           path="teams/:teamId/roster"

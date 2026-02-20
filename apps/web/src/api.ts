@@ -34,6 +34,14 @@ export type Player = {
   throws?: string | null;
 };
 
+export type Post = {
+  id: number;
+  content: string;
+  author_name: string;
+  created_at: string;
+  image_url?: string | null;
+};
+
 export class AuthError extends Error {
   status: number;
 
@@ -307,6 +315,27 @@ export async function fetchGamesPublic() {
   const data = (await fallback.json()) as Game[];
   cacheGames(data);
   return data;
+}
+
+export async function getPosts() {
+  const res = await fetch(`${API_BASE}/posts`);
+  if (!res.ok) {
+    throw new ApiError("Request failed", res.status);
+  }
+  return res.json() as Promise<Post[]>;
+}
+
+export async function createPost(content: string, image?: File | null) {
+  const formData = new FormData();
+  formData.append("content", content);
+  if (image) {
+    formData.append("image", image);
+  }
+  const res = await authenticatedFetch(`${API_BASE}/posts`, {
+    method: "POST",
+    body: formData,
+  });
+  return res.json() as Promise<Post>;
 }
 
 export function getCachedTeams(): Team[] | null {
