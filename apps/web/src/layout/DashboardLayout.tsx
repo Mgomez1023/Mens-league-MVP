@@ -1,0 +1,71 @@
+import { useState } from "react";
+import { Link, NavLink, Outlet } from "react-router-dom";
+import "../styles/dashboard.css";
+
+type DashboardLayoutProps = {
+  authed: boolean;
+  isAdmin: boolean;
+  onLogout: () => void;
+};
+
+export default function DashboardLayout({ authed, isAdmin, onLogout }: DashboardLayoutProps) {
+  const [open, setOpen] = useState(false);
+
+  const closeDrawer = () => setOpen(false);
+
+  return (
+    <div className={`dashboard-shell ${open ? "drawer-open" : ""}`}>
+      <header className="dashboard-header">
+        <button
+          className="menu-button"
+          onClick={() => setOpen((prev) => !prev)}
+          aria-label="Toggle navigation"
+        >
+          ☰
+        </button>
+        <div className="header-title">Benito Juarez</div>
+        <div className="header-actions">
+          {authed && (
+            <button className="logout-button" onClick={onLogout}>
+              Logout
+            </button>
+          )}
+        </div>
+      </header>
+
+      <div className={`drawer-backdrop ${open ? "open" : ""}`} onClick={closeDrawer} />
+
+      <aside className={`dashboard-drawer ${open ? "open" : ""}`}>
+        <nav className="nav-list">
+          <NavLink
+            to="/games"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeDrawer}
+          >
+            Games
+          </NavLink>
+          <NavLink
+            to="/teams"
+            className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+            onClick={closeDrawer}
+          >
+            Teams
+          </NavLink>
+          {!authed && (
+            <NavLink
+              to="/login"
+              className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+              onClick={closeDrawer}
+            >
+              Login
+            </NavLink>
+          )}
+        </nav>
+      </aside>
+
+      <main className="dashboard-content">
+        <Outlet />
+      </main>
+    </div>
+  );
+}

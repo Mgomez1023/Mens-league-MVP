@@ -1,0 +1,54 @@
+date,time,home_team,away_team,field,home_score,away_score,status
+2026-04-05,09:00,8-ballers,Aztecs,Field 1,,,SCHEDULED
+2026-04-05,11:15,Braves,Illinois White Sox,Field 1,,,SCHEDULED
+2026-04-05,09:00,La Aduana,La Barca,Field 2,,,SCHEDULED
+2026-04-05,11:15,Los Pajaros,Naranjeros,Field 2,,,SCHEDULED
+2026-04-05,13:30,San Augustine,Venenzuela,Field 1,,,SCHEDULED
+
+2026-04-12,09:00,Aztecs,Braves,Field 1,,,SCHEDULED
+2026-04-12,11:15,Illinois White Sox,La Aduana,Field 1,,,SCHEDULED
+2026-04-12,09:00,La Barca,Los Pajaros,Field 2,,,SCHEDULED
+2026-04-12,11:15,Naranjeros,San Augustine,Field 2,,,SCHEDULED
+2026-04-12,13:30,Venenzuela,8-ballers,Field 1,,,SCHEDULED
+
+2026-04-19,09:00,Braves,La Aduana,Field 1,,,SCHEDULED
+2026-04-19,11:15,Aztecs,Illinois White Sox,Field 1,,,SCHEDULED
+2026-04-19,09:00,Los Pajaros,San Augustine,Field 2,,,SCHEDULED
+2026-04-19,11:15,La Barca,Venenzuela,Field 2,,,SCHEDULED
+2026-04-19,13:30,Naranjeros,8-ballers,Field 1,,,SCHEDULED
+
+2026-04-26,09:00,Illinois White Sox,La Barca,Field 1,,,SCHEDULED
+2026-04-26,11:15,La Aduana,Los Pajaros,Field 1,,,SCHEDULED
+2026-04-26,09:00,San Augustine,Aztecs,Field 2,,,SCHEDULED
+2026-04-26,11:15,Venenzuela,Braves,Field 2,,,SCHEDULED
+2026-04-26,13:30,8-ballers,Naranjeros,Field 1,,,SCHEDULED
+
+2026-05-03,09:00,La Barca,San Augustine,Field 1,,,SCHEDULED
+2026-05-03,11:15,Los Pajaros,Venenzuela,Field 1,,,SCHEDULED
+2026-05-03,09:00,La Aduana,Aztecs,Field 2,,,SCHEDULED
+2026-05-03,11:15,Braves,Naranjeros,Field 2,,,SCHEDULED
+2026-05-03,13:30,Illinois White Sox,8-ballers,Field 1,,,SCHEDULED
+
+2026-05-10,09:00,San Augustine,La Aduana,Field 1,,,SCHEDULED
+2026-05-10,11:15,Venenzuela,Illinois White Sox,Field 1,,,SCHEDULED
+2026-05-10,09:00,Naranjeros,Aztecs,Field 2,,,SCHEDULED
+2026-05-10,11:15,Los Pajaros,8-ballers,Field 2,,,SCHEDULED
+2026-05-10,13:30,La Barca,Braves,Field 1,,,SCHEDULED
+
+2026-05-17,09:00,La Aduana,Naranjeros,Field 1,,,SCHEDULED
+2026-05-17,11:15,Aztecs,Los Pajaros,Field 1,,,SCHEDULED
+2026-05-17,09:00,8-ballers,La Barca,Field 2,,,SCHEDULED
+2026-05-17,11:15,Braves,San Augustine,Field 2,,,SCHEDULED
+2026-05-17,13:30,Illinois White Sox,Venenzuela,Field 1,,,SCHEDULED
+
+2026-05-24,09:00,Naranjeros,Illinois White Sox,Field 1,,,SCHEDULED
+2026-05-24,11:15,Los Pajaros,Braves,Field 1,,,SCHEDULED
+2026-05-24,09:00,La Barca,Aztecs,Field 2,,,SCHEDULED
+2026-05-24,11:15,San Augustine,8-ballers,Field 2,,,SCHEDULED
+2026-05-24,13:30,Venenzuela,La Aduana,Field 1,,,SCHEDULED
+
+2026-05-31,09:00,Illinois White Sox,Los Pajaros,Field 1,,,SCHEDULED
+2026-05-31,11:15,Braves,Aztecs,Field 1,,,SCHEDULED
+2026-05-31,09:00,La Aduana,8-ballers,Field 2,,,SCHEDULED
+2026-05-31,11:15,Naranjeros,La Barca,Field 2,,,SCHEDULED
+2026-05-31,13:30,Venenzuela,San Augustine,Field 1,,,SCHEDULED

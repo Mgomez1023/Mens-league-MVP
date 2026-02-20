@@ -1,0 +1,54 @@
+date,home_team,away_team,field,home_score,away_score,status
+2026-04-05,La Aduana,8 Ballers,Field 1,,,SCHEDULED
+2026-04-05,Aztecs,Los Amigos,Field 1,,,SCHEDULED
+2026-04-05,Tigers,Warriors,Field 2,,,SCHEDULED
+2026-04-05,Diamond Kings,Panthers,Field 2,,,SCHEDULED
+2026-04-05,Raptors,Outlaws,Field 1,,,SCHEDULED
+
+2026-04-12,8 Ballers,Aztecs,Field 1,,,SCHEDULED
+2026-04-12,Los Amigos,Tigers,Field 1,,,SCHEDULED
+2026-04-12,Warriors,Diamond Kings,Field 2,,,SCHEDULED
+2026-04-12,Panthers,Raptors,Field 2,,,SCHEDULED
+2026-04-12,Outlaws,La Aduana,Field 1,,,SCHEDULED
+
+2026-04-19,Aztecs,Tigers,Field 1,,,SCHEDULED
+2026-04-19,8 Ballers,Warriors,Field 1,,,SCHEDULED
+2026-04-19,Los Amigos,Diamond Kings,Field 2,,,SCHEDULED
+2026-04-19,Panthers,Outlaws,Field 2,,,SCHEDULED
+2026-04-19,Raptors,La Aduana,Field 1,,,SCHEDULED
+
+2026-04-26,Tigers,8 Ballers,Field 1,,,SCHEDULED
+2026-04-26,Warriors,Aztecs,Field 1,,,SCHEDULED
+2026-04-26,Diamond Kings,La Aduana,Field 2,,,SCHEDULED
+2026-04-26,Los Amigos,Panthers,Field 2,,,SCHEDULED
+2026-04-26,Outlaws,Raptors,Field 1,,,SCHEDULED
+
+2026-05-03,Aztecs,Diamond Kings,Field 1,,,SCHEDULED
+2026-05-03,Tigers,La Aduana,Field 1,,,SCHEDULED
+2026-05-03,8 Ballers,Panthers,Field 2,,,SCHEDULED
+2026-05-03,Warriors,Raptors,Field 2,,,SCHEDULED
+2026-05-03,Los Amigos,Outlaws,Field 1,,,SCHEDULED
+
+2026-05-10,La Aduana,Aztecs,Field 1,,,SCHEDULED
+2026-05-10,Diamond Kings,8 Ballers,Field 1,,,SCHEDULED
+2026-05-10,Panthers,Warriors,Field 2,,,SCHEDULED
+2026-05-10,Raptors,Los Amigos,Field 2,,,SCHEDULED
+2026-05-10,Outlaws,Tigers,Field 1,,,SCHEDULED
+
+2026-05-17,Aztecs,Panthers,Field 1,,,SCHEDULED
+2026-05-17,La Aduana,Warriors,Field 1,,,SCHEDULED
+2026-05-17,8 Ballers,Raptors,Field 2,,,SCHEDULED
+2026-05-17,Diamond Kings,Outlaws,Field 2,,,SCHEDULED
+2026-05-17,Los Amigos,Tigers,Field 1,,,SCHEDULED
+
+2026-05-24,Warriors,Los Amigos,Field 1,,,SCHEDULED
+2026-05-24,Panthers,La Aduana,Field 1,,,SCHEDULED
+2026-05-24,Raptors,Aztecs,Field 2,,,SCHEDULED
+2026-05-24,Outlaws,8 Ballers,Field 2,,,SCHEDULED
+2026-05-24,Tigers,Diamond Kings,Field 1,,,SCHEDULED
+
+2026-05-31,La Aduana,Los Amigos,Field 1,,,SCHEDULED
+2026-05-31,Aztecs,Outlaws,Field 1,,,SCHEDULED
+2026-05-31,8 Ballers,Tigers,Field 2,,,SCHEDULED
+2026-05-31,Warriors,Raptors,Field 2,,,SCHEDULED
+2026-05-31,Panthers,Diamond Kings,Field 1,,,SCHEDULED
