@@ -3,13 +3,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
+from .config import settings
 from .db import SessionLocal
 from .models import User
 
 bearer = HTTPBearer()
-
-JWT_SECRET = "dev-change-me"
-JWT_ALG = "HS256"
 
 def get_db():
     db = SessionLocal()
@@ -24,7 +22,7 @@ def get_current_admin(
 ) -> User:
     token = creds.credentials
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_alg])
         user_id = int(payload["sub"])
     except (JWTError, KeyError, ValueError):
         raise HTTPException(status_code=401, detail="Invalid token")

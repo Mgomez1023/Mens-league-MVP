@@ -1,15 +1,17 @@
 import csv
 import datetime
 import re
-from io import TextIOWrapper
+from io import BytesIO, TextIOWrapper
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from ..deps import get_db, get_current_admin
-from ..models import Team, Game, Player, Season
+from ..models import Team, Game, Player, Post, Season, User
+from ..schemas import PostOut
 from ..standings import compute_team_records
-from ..storage import team_logo_url
+from ..storage import team_logo_url, post_image_path, post_image_url
 
 router = APIRouter(tags=["public"])
 
@@ -52,6 +54,16 @@ def serialize_player(player: Player):
     }
 
 
+def serialize_post(post: Post):
+    return {
+        "id": post.id,
+        "content": post.content,
+        "author_name": post.author_name,
+        "created_at": post.created_at,
+        "image_url": post_image_url(post.id),
+    }
+
+
 @router.get("/teams")
 def list_teams(db: Session = Depends(get_db)):
     teams = db.query(Team).order_by(Team.name.asc()).all()
@@ -63,6 +75,67 @@ def list_teams(db: Session = Depends(get_db)):
 def list_games(db: Session = Depends(get_db)):
     games = db.query(Game).order_by(Game.date.asc(), Game.time.asc()).all()
     return [serialize_game(game) for game in games]
+
+
+@router.get("/posts", response_model=list[PostOut])
+def list_posts(db: Session = Depends(get_db)):
+    posts = db.query(Post).order_by(Post.created_at.desc(), Post.id.desc()).all()
+    return [serialize_post(post) for post in posts]
+
+
+@router.post("/posts", response_model=PostOut)
+def create_post(
+    content: str = Form(...),
+    image: UploadFile | None = File(default=None),
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    trimmed_content = content.strip()
+    if not trimmed_content:
+        raise HTTPException(status_code=400, detail="Content is required")
+    if len(trimmed_content) > 5000:
+        raise HTTPException(status_code=400, detail="Content must be 5000 characters or fewer")
+    if image and (not image.content_type or not image.content_type.startswith("image/")):
+        raise HTTPException(status_code=400, detail="Invalid image type")
+
+    post = Post(
+        content=trimmed_content,
+        author_name=admin.email,
+    )
+    db.add(post)
+    db.flush()
+
+    if image:
+        output = BytesIO()
+        try:
+            picture = Image.open(image.file)
+            picture = picture.convert("RGB")
+            picture.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+            picture.save(output, format="JPEG", quality=88)
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(status_code=400, detail="Unable to process image") from exc
+
+        output.seek(0)
+        path = post_image_path(post.id)
+        tmp_path = path.with_suffix(".tmp")
+        try:
+            with open(tmp_path, "wb") as handle:
+                handle.write(output.read())
+            tmp_path.replace(path)
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Unable to save image") from exc
+        finally:
+            if tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except Exception:
+                    pass
+
+    db.commit()
+    db.refresh(post)
+    return serialize_post(post)
 
 
 @router.get("/teams/{team_id}/players")

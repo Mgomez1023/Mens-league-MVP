@@ -1,8 +1,9 @@
 from sqlalchemy import (
-    String, Integer, Date, ForeignKey, Boolean,
+    String, Integer, Date, DateTime, Text, ForeignKey, Boolean,
     UniqueConstraint
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+import datetime
 from .db import Base
 
 class User(Base):
@@ -57,3 +58,13 @@ class Game(Base):
     home_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     away_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String, default="SCHEDULED")  # SCHEDULED|FINAL
+
+
+class Post(Base):
+    __tablename__ = "posts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    author_name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.datetime.utcnow
+    )

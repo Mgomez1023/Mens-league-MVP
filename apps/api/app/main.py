@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from .config import settings
 from .db import Base, engine, SessionLocal
 from datetime import date
 
@@ -43,13 +44,28 @@ def ensure_game_columns():
 
 ensure_game_columns()
 
+def ensure_post_columns():
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.begin() as conn:
+        result = conn.execute(text("PRAGMA table_info(posts)"))
+        columns = {row[1] for row in result}
+        if not columns:
+            return
+        if "author_name" not in columns:
+            conn.execute(text("ALTER TABLE posts ADD COLUMN author_name VARCHAR"))
+            conn.execute(text("UPDATE posts SET author_name = 'system' WHERE author_name IS NULL"))
+        if "created_at" not in columns:
+            conn.execute(text("ALTER TABLE posts ADD COLUMN created_at DATETIME"))
+            conn.execute(text("UPDATE posts SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
+
+ensure_post_columns()
+
+allow_all_origins = "*" in settings.cors_allow_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"] if allow_all_origins else settings.cors_allow_origins,
+    allow_credentials=not allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -59,9 +75,8 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 def seed_admin():
     db: Session = SessionLocal()
     try:
-        # change these for real use
-        email = "admin@league.local"
-        password = "admin123"
+        email = settings.admin_email
+        password = settings.admin_password
 
         existing = db.query(User).filter(User.email == email).first()
         if not existing:
