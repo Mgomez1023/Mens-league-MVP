@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import LandingPage from "./pages/LandingPage.tsx";
 import DashboardLayout from "./layout/DashboardLayout";
+import HomePage from "./pages/HomePage";
 import TeamsPage from "./pages/TeamsPage";
 import GamesPage from "./pages/GamesPage";
 import RosterPage from "./pages/RosterPage";
@@ -36,24 +37,24 @@ export default function App() {
   const handleLogout = () => {
     clearToken();
     setAuth({ authed: false, isAdmin: false });
-    navigate("/games", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const handleAuthError = () => {
     clearToken();
     setAuth({ authed: false, isAdmin: false });
-    navigate("/games", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const handleLoginDone = () => {
     setAuth(readAuthState());
-    navigate("/games", { replace: true });
+    navigate("/", { replace: true });
   };
 
   useEffect(() => {
     const unsubscribe = onUnauthorized(() => {
       setAuth({ authed: false, isAdmin: false });
-      navigate("/games", { replace: true });
+      navigate("/", { replace: true });
     });
     return unsubscribe;
   }, [navigate]);
@@ -69,7 +70,7 @@ export default function App() {
           />
         }
       >
-        <Route index element={<Navigate to="/games" replace />} />
+        <Route index element={<HomePage />} />
         <Route
           path="teams"
           element={
@@ -80,7 +81,7 @@ export default function App() {
           path="login"
           element={
             auth.authed ? (
-              <Navigate to="/games" replace />
+              <Navigate to="/" replace />
             ) : (
               <LandingPage onDone={handleLoginDone} />
             )
@@ -106,9 +107,9 @@ export default function App() {
             <RosterPage authed={auth.authed} isAdmin={auth.isAdmin} onAuthError={handleAuthError} />
           }
         />
-        <Route path="*" element={<Navigate to="/games" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-      <Route path="*" element={<Navigate to="/games" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

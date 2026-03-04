@@ -300,25 +300,23 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         </div>
       )}
 
-      {isAdmin && (
+      {isAdmin && importResult && (
         <div className="table-card roster-import">
-          {importResult && (
-            <div className="import-summary">
-              <p className="status">
-                Created {importResult.created}, Updated {importResult.updated}, Skipped{" "}
-                {importResult.skipped}, Errors {importResult.errors.length}
-              </p>
-              {importResult.errors.length > 0 && (
-                <ul className="error-list">
-                  {importResult.errors.map((error) => (
-                    <li key={`${error.row}-${error.message}`}>
-                      Row {error.row}: {error.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+          <div className="import-summary">
+            <p className="status">
+              Created {importResult.created}, Updated {importResult.updated}, Skipped{" "}
+              {importResult.skipped}, Errors {importResult.errors.length}
+            </p>
+            {importResult.errors.length > 0 && (
+              <ul className="error-list">
+                {importResult.errors.map((error) => (
+                  <li key={`${error.row}-${error.message}`}>
+                    Row {error.row}: {error.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 

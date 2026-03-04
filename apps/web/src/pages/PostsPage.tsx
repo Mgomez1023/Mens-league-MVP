@@ -200,9 +200,6 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
               : "League announcements and updates."}
           </p>
         </div>
-        <div className="posts-header-meta">
-          <span className="posts-count">{posts.length} total</span>
-        </div>
       </div>
 
       {isAdmin && (

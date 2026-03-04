@@ -1,4 +1,5 @@
-export const API_BASE = "http://127.0.0.1:8000";
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
+export const API_BASE = (configuredApiBase || "http://127.0.0.1:8000").replace(/\/$/, "");
 const TEAMS_CACHE_KEY = "teams_cache";
 const GAMES_CACHE_KEY = "games_cache";
 

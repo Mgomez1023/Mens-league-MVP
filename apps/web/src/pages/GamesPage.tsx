@@ -463,7 +463,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         </div>
       </div>
 
-      {isAdmin && (
+      {isAdmin && (importError || importResult) && (
         <div className="table-card roster-import">
           {importError && <p className="status error">{importError}</p>}
           {importResult && (
