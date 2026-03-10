@@ -1,40 +1,75 @@
 import { useState } from "react";
 import { login, setToken } from "../api";
+import { Notice, PageHeader, SurfaceCard } from "../components/ui";
 
-import "../styling/LandingPage.css";
-
-export default function Login({ onDone }: { onDone: () => void }) {
-  const [email, setEmail] = useState("admin@league.local");
-  const [password, setPassword] = useState("admin123");
+export default function LandingPage({ onDone }: { onDone: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
     setErr(null);
+    setSubmitting(true);
     try {
-      const { access_token } = await login(email, password);
-      console.log(access_token);
+      const { access_token } = await login(email.trim(), password);
       setToken(access_token);
-      localStorage.setItem("token", access_token);
       onDone();
     } catch {
-      setErr("Invalid admin credentials");
+      setErr("Invalid admin credentials.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
-    <div className="main"> 
+    <section className="page-stack">
+      <PageHeader
+        eyebrow=""
+        title="Admin login"
+        description=""
+      />
 
-      <h2 className="admin-label">Admin Login</h2>
-      <form className="login-form" onSubmit={submit}>
-        <label>Email</label>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} className="text-box" />
-        <label>Password</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="text-box" />
-        <button className="login-button">Login</button>
-        {err && <p className="error-text">{err}</p>}
-      </form>
+      <SurfaceCard className="login-card">
+        <div className="login-card-copy">
+          <h2>League Login</h2>
+          <p>
 
-    </div>
+          </p>
+        </div>
+
+        <form className="form-grid login-form-grid" onSubmit={submit}>
+          <label className="field">
+            <span>Email</span>
+            <input
+              autoComplete="username"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="commissioner@example.com"
+            />
+          </label>
+
+          <label className="field">
+            <span>Password</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter password"
+            />
+          </label>
+
+          <div className="form-actions">
+            <button className="button button-primary" disabled={submitting} type="submit">
+              {submitting ? "Signing in..." : "Sign in"}
+            </button>
+          </div>
+        </form>
+
+        {err && <Notice variant="error">{err}</Notice>}
+      </SurfaceCard>
+    </section>
   );
 }

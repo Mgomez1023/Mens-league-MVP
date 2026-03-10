@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ApiError,
   AuthError,
+  PermissionError,
   createTeam,
   deleteTeam,
   fetchTeams,
@@ -10,14 +11,28 @@ import {
   getCachedTeams,
   resolveApiUrl,
   uploadTeamLogo,
-  PermissionError,
 } from "../api";
 import type { Team } from "../api";
+import {
+  EmptyState,
+  LoadingState,
+  Notice,
+  PageHeader,
+  SectionHeader,
+  SurfaceCard,
+  TeamAvatar,
+} from "../components/ui";
+import { getRecord, sortStandings } from "../utils/league";
 
 type TeamsPageProps = {
   authed: boolean;
   isAdmin: boolean;
   onAuthError: () => void;
+};
+
+const emptyForm = {
+  name: "",
+  home_field: "",
 };
 
 export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPageProps) {
@@ -31,10 +46,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [logoShapes, setLogoShapes] = useState<Record<number, "square" | "wide" | "tall">>({});
-  const [formData, setFormData] = useState({
-    name: "",
-  });
+  const [formData, setFormData] = useState(emptyForm);
   const [formLogo, setFormLogo] = useState<File | null>(null);
 
   useEffect(() => {
@@ -50,7 +62,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
       try {
         const data = canAdmin ? await fetchTeams() : await fetchTeamsPublic();
         if (!active) return;
-        setTeams(data);
+        setTeams(sortStandings(data));
       } catch (err) {
         if (!active) return;
         if (err instanceof AuthError && canAdmin) {
@@ -60,8 +72,8 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
         if (err instanceof ApiError && err.status === 404) {
           const cached = getCachedTeams();
           if (cached && cached.length > 0) {
-            setTeams(cached);
-            setNotice("Showing cached teams. Log in for the latest data.");
+            setTeams(sortStandings(cached));
+            setNotice("Showing cached teams while the live endpoint is unavailable.");
             return;
           }
           setEndpointMissing(true);
@@ -74,11 +86,11 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
         ) {
           const cached = getCachedTeams();
           if (cached && cached.length > 0) {
-            setTeams(cached);
-            setNotice("Showing cached teams. Log in for the latest data.");
+            setTeams(sortStandings(cached));
+            setNotice("Showing cached teams. Log in for the latest league data.");
             return;
           }
-          setError("Teams are temporarily unavailable without login.");
+          setError("Teams are temporarily unavailable.");
           return;
         }
         setError("Unable to load teams right now.");
@@ -87,20 +99,22 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
       }
     };
 
-    load();
-
+    void load();
     return () => {
       active = false;
     };
   }, [authed, isAdmin, onAuthError]);
 
-  const handleFormChange = (value: string) => {
-    setFormData({ name: value });
+  const orderedTeams = useMemo(() => sortStandings(teams), [teams]);
+
+  const handleFormChange = (field: keyof typeof emptyForm, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleCreateTeam = async (event: React.FormEvent) => {
     event.preventDefault();
     setFormError(null);
+    setNotice(null);
 
     if (!formData.name.trim()) {
       setFormError("Team name is required.");
@@ -111,12 +125,9 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
     try {
       const created = await createTeam({
         name: formData.name.trim(),
+        home_field: formData.home_field.trim() || null,
       });
-      setTeams((prev) =>
-        [...prev.filter((team) => team.id !== created.id), created].sort((a, b) =>
-          a.name.localeCompare(b.name),
-        ),
-      );
+
       let updatedTeam = created;
       if (formLogo) {
         setUploading(true);
@@ -132,17 +143,15 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
             setFormError("Admin access required.");
             return;
           }
-          setFormError("Logo upload failed. Team was created without a logo.");
+          setFormError("Team saved, but the logo upload failed.");
         }
       }
-      setTeams((prev) =>
-        [...prev.filter((team) => team.id !== updatedTeam.id), updatedTeam].sort(
-          (a, b) => a.name.localeCompare(b.name),
-        ),
-      );
-      setFormData({ name: "" });
+
+      setTeams((prev) => sortStandings([...prev.filter((team) => team.id !== updatedTeam.id), updatedTeam]));
+      setFormData(emptyForm);
       setFormLogo(null);
       setFormOpen(false);
+      setNotice("Team added successfully.");
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
@@ -150,6 +159,10 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
       }
       if (err instanceof PermissionError) {
         setFormError("Admin access required.");
+        return;
+      }
+      if (err instanceof ApiError && err.detail) {
+        setFormError(err.detail);
         return;
       }
       setFormError("Unable to add team right now.");
@@ -162,9 +175,12 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
   const handleDeleteTeam = async (teamId: number) => {
     if (!window.confirm("Delete this team?")) return;
     setDeletingId(teamId);
+    setError(null);
+    setNotice(null);
     try {
       await deleteTeam(teamId);
       setTeams((prev) => prev.filter((team) => team.id !== teamId));
+      setNotice("Team removed.");
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
@@ -177,12 +193,13 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
       if (err instanceof ApiError && err.status === 400) {
         const detail = err.detail ?? err.message;
         const confirmed = window.confirm(
-          `${detail} Delete anyway? This will remove related games and players.`,
+          `${detail} Delete anyway? This will also remove related games and players.`,
         );
         if (!confirmed) return;
         try {
           await deleteTeam(teamId, { force: true });
           setTeams((prev) => prev.filter((team) => team.id !== teamId));
+          setNotice("Team and related data removed.");
           return;
         } catch (inner) {
           if (inner instanceof AuthError) {
@@ -216,122 +233,153 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
     setFormLogo(file);
   };
 
-  const handleLogoLoad = (teamId: number, image: HTMLImageElement) => {
-    if (!image.naturalWidth || !image.naturalHeight) return;
-    const ratio = image.naturalWidth / image.naturalHeight;
-    let shape: "square" | "wide" | "tall" = "square";
-    if (ratio >= 1.2) shape = "wide";
-    else if (ratio <= 0.83) shape = "tall";
-    setLogoShapes((prev) => (prev[teamId] === shape ? prev : { ...prev, [teamId]: shape }));
-  };
-
   return (
-    <section>
-      <div className="page-header">
-        <div>
-          <h1>Teams</h1>
-          <p className="muted">
-            {isAdmin
-              ? "Manage teams and view rosters."
-              : "Browse teams in read-only mode. Log in to view rosters."}
-          </p>
-        </div>
-        {isAdmin && (
-          <button
-            className="ghost-link"
-            type="button"
-            onClick={() => setFormOpen((prev) => !prev)}
-          >
-            {formOpen ? "Close" : "Add team"}
-          </button>
-        )}
-      </div>
+    <section className="page-stack">
+      <PageHeader
+        eyebrow="Teams and rosters"
+        title="League teams"
+        description=""
+        actions={
+          isAdmin ? (
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => setFormOpen((prev) => !prev)}
+            >
+              {formOpen ? "Close form" : "Add team"}
+            </button>
+          ) : undefined
+        }
+      />
 
-      {isAdmin && formOpen && (
-        <div className="table-card form-card">
-          <form className="form-grid" onSubmit={handleCreateTeam}>
-            <label className="field">
-              <span>Team Name</span>
-              <input
-                value={formData.name}
-                onChange={(event) => handleFormChange(event.target.value)}
-                placeholder="e.g. Cubs"
-              />
-            </label>
-            <label className="field">
-              <span>Team Logo</span>
-              <label className="upload-button">
-                {formLogo ? formLogo.name : "Choose image"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => handleLogoSelect(event.target.files?.[0])}
-                />
-              </label>
-            </label>
-            <div className="form-actions form-actions-split">
-              <button type="submit" disabled={saving || uploading}>
-                {saving || uploading ? "Saving..." : "Save team"}
-              </button>
-              <button
-                type="button"
-                className="ghost-link"
-                onClick={() => setFormOpen(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-          {formError && <p className="status error">{formError}</p>}
-        </div>
-      )}
-
-      {loading && <p className="status">Loading teams...</p>}
+      {loading && <LoadingState label="Loading teams..." />}
       {!loading && endpointMissing && (
-        <p className="status">Teams endpoint not available yet.</p>
+        <Notice variant="warning">Teams endpoint not available yet.</Notice>
       )}
-      {!loading && notice && <p className="status">{notice}</p>}
-      {!loading && error && <p className="status error">{error}</p>}
+      {!loading && notice && <Notice variant="success">{notice}</Notice>}
+      {!loading && error && <Notice variant="error">{error}</Notice>}
 
       {!loading && !error && !endpointMissing && (
-        <div className="teams-grid">
-          {teams.map((team) => (
-            <div className="team-card" key={team.id}>
-              <div className={`team-logo ${logoShapes[team.id] ?? "square"}`}>
-                {team.logo_url ? (
-                  <img
-                    src={resolveApiUrl(team.logo_url)}
-                    alt={`${team.name} logo`}
-                    onLoad={(event) => handleLogoLoad(team.id, event.currentTarget)}
-                  />
-                ) : (
-                  <span aria-hidden="true">{team.name.slice(0, 1).toUpperCase()}</span>
-                )}
-              </div>
-              <div className="team-name">{team.name}</div>
-              <div className="team-record">
-                Record {team.wins ?? 0}-{team.losses ?? 0}
-              </div>
-              <div className="team-actions">
-                <Link className="table-link" to={`/teams/${team.id}/roster`}>
-                  View roster
-                </Link>
-                {isAdmin && (
-                  <button
-                    className="danger-button"
-                    onClick={() => handleDeleteTeam(team.id)}
-                    disabled={deletingId === team.id}
-                  >
-                    {deletingId === team.id ? "Deleting..." : "Delete"}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+        <SurfaceCard>
+          <SectionHeader
+            title="All teams"
+            description=""
+          />
+          {orderedTeams.length === 0 ? (
+            <EmptyState
+              title="No teams found"
+              description="Add a team to start building the league table and roster pages."
+            />
+          ) : (
+            <div className="team-grid">
+              {orderedTeams.map((team, index) => (
+                <article className="team-overview-card" key={team.id}>
+                  <div className="team-overview-head">
+                    <div className="team-overview-brand">
+                      <TeamAvatar
+                        name={team.name}
+                        src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
+                        size="lg"
+                      />
+                      <div className="team-overview-copy">
+                        <div className="team-overview-title-row">
+                          <h3>{team.name}</h3>
+                          <div className="team-record-badge">{getRecord(team)}</div>
+                        </div>
+                        <p className="team-rank">Rank #{index + 1}</p>
+                      </div>
+                    </div>
+                  </div>
 
-          {teams.length === 0 && (
-            <p className="status">No teams found yet.</p>
+                  <div className="team-card-actions">
+                    <Link className="button button-secondary button-small" to={`/teams/${team.id}/roster`}>
+                      View roster
+                    </Link>
+                    {isAdmin && (
+                      <button
+                        className="button button-danger button-small"
+                        onClick={() => handleDeleteTeam(team.id)}
+                        disabled={deletingId === team.id}
+                      >
+                        {deletingId === team.id ? "Deleting..." : "Delete"}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
           )}
+        </SurfaceCard>
+      )}
+
+      {isAdmin && formOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <SurfaceCard className="modal-card">
+            <SectionHeader
+              title="Add team"
+              description="Create a new club entry and optionally attach a logo."
+              action={
+                <button
+                  className="button button-secondary button-small"
+                  type="button"
+                  onClick={() => {
+                    setFormOpen(false);
+                    setFormError(null);
+                  }}
+                >
+                  Close
+                </button>
+              }
+            />
+            <form className="form-grid team-form-grid" onSubmit={handleCreateTeam}>
+              <label className="field">
+                <span>Team name</span>
+                <input
+                  value={formData.name}
+                  onChange={(event) => handleFormChange("name", event.target.value)}
+                  placeholder="e.g. Cubs"
+                />
+              </label>
+
+              <label className="field">
+                <span>Home field</span>
+                <input
+                  value={formData.home_field}
+                  onChange={(event) => handleFormChange("home_field", event.target.value)}
+                  placeholder="e.g. Benito Juarez Field 1"
+                />
+              </label>
+
+              <label className="field">
+                <span>Team logo</span>
+                <label className="file-trigger">
+                  <span>{formLogo ? formLogo.name : "Choose image"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => handleLogoSelect(event.target.files?.[0])}
+                  />
+                </label>
+              </label>
+
+              <div className="form-actions">
+                <button className="button button-primary" type="submit" disabled={saving || uploading}>
+                  {saving || uploading ? "Saving..." : "Save team"}
+                </button>
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => {
+                    setFormOpen(false);
+                    setFormError(null);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+            {formError && <Notice variant="error">{formError}</Notice>}
+          </SurfaceCard>
         </div>
       )}
     </section>

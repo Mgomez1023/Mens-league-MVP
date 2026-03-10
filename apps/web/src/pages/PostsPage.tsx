@@ -8,6 +8,16 @@ import {
   resolveApiUrl,
 } from "../api";
 import type { Post } from "../api";
+import {
+  EmptyState,
+  LoadingState,
+  Notice,
+  PageHeader,
+  SectionHeader,
+  StatusChip,
+  SurfaceCard,
+} from "../components/ui";
+import { formatDateTime } from "../utils/league";
 
 type PostsPageProps = {
   isAdmin: boolean;
@@ -98,22 +108,11 @@ function renderContentWithLinks(content: string) {
   });
 }
 
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [content, setContent] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -128,7 +127,7 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
       const data = await getPosts();
       setPosts(data);
     } catch {
-      setError("Unable to load posts right now.");
+      setError("Unable to load announcements right now.");
     } finally {
       setLoading(false);
     }
@@ -145,7 +144,7 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
 
     const trimmed = content.trim();
     if (!trimmed) {
-      setFormError("Post content is required.");
+      setFormError("Announcement content is required.");
       return;
     }
 
@@ -155,7 +154,8 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
       setContent("");
       setImageFile(null);
       setFileInputKey((prev) => prev + 1);
-      setSuccess("Post published.");
+      setComposerOpen(false);
+      setSuccess("Announcement published.");
       await loadPosts();
     } catch (err) {
       if (err instanceof AuthError) {
@@ -170,7 +170,7 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
         setFormError(err.detail);
         return;
       }
-      setFormError("Unable to publish post right now.");
+      setFormError("Unable to publish announcement right now.");
     } finally {
       setPublishing(false);
     }
@@ -190,124 +190,152 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
   };
 
   return (
-    <section className="posts-page">
-      <div className="page-header">
-        <div>
-          <h1>Posts</h1>
-          <p className="muted">
-            {isAdmin
-              ? "Share league announcements with everyone."
-              : "League announcements and updates."}
-          </p>
-        </div>
-      </div>
+    <section className="page-stack">
+      <PageHeader
+        eyebrow="League news"
+        title="Announcements"
+        description=""
+        actions={
+          isAdmin ? (
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => setComposerOpen(true)}
+            >
+              New announcement
+            </button>
+          ) : undefined
+        }
+      />
 
-      {isAdmin && (
-        <div className="table-card form-card posts-composer">
-          <div className="posts-composer-header">
-            <h2>Publish Update</h2>
-            <span className="posts-chip">Admins only</span>
-          </div>
-          <form className="form-grid form-stacked" onSubmit={handlePublish}>
-            <label className="field">
-              <span>New Post</span>
-              <textarea
-                value={content}
-                onChange={(event) => setContent(event.target.value)}
-                placeholder="Write an update for the league..."
-                rows={5}
-                maxLength={5000}
-              />
-            </label>
-            <label className="field">
-              <span>Image (optional)</span>
-              <label className="upload-button post-upload-button">
-                {imageFile ? imageFile.name : "Choose image"}
-                <input
-                  key={fileInputKey}
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => handleImageSelect(event.target.files?.[0])}
-                />
-              </label>
-            </label>
-            <div className="form-actions posts-composer-actions">
-              <span className={`composer-counter ${remainingChars < 200 ? "low" : ""}`}>
-                {remainingChars} characters left
-              </span>
-              <div className="posts-actions-right">
-                {imageFile && (
-                  <button
-                    className="link-button"
-                    type="button"
-                    onClick={() => {
-                      setImageFile(null);
-                      setFileInputKey((prev) => prev + 1);
-                    }}
-                  >
-                    Remove image
-                  </button>
-                )}
-                <button className="primary-button" type="submit" disabled={publishing}>
-                  {publishing ? "Publishing..." : "Publish"}
-                </button>
-              </div>
-            </div>
-          </form>
-          {formError && <p className="status error">{formError}</p>}
-          {success && <p className="status">{success}</p>}
-        </div>
-      )}
-
-      {loading && <p className="status">Loading posts...</p>}
-      {!loading && error && <p className="status error">{error}</p>}
+      {loading && <LoadingState label="Loading announcements..." />}
+      {!loading && error && <Notice variant="error">{error}</Notice>}
+      {!loading && success && <Notice variant="success">{success}</Notice>}
 
       {!loading && !error && posts.length === 0 && (
-        <div className="post-empty">
-          <p>No posts yet.</p>
-          <p className="muted">New announcements will appear here.</p>
-        </div>
+        <SurfaceCard>
+          <EmptyState
+            title="No announcements yet"
+            description="League updates will appear here once they are published."
+          />
+        </SurfaceCard>
       )}
 
       {!loading && !error && posts.length > 0 && (
-        <div className="posts-list">
+        <div className="announcement-feed">
           {posts.map((post) => (
-            <article className="post-card" key={post.id}>
-              <div className="post-meta">
+            <SurfaceCard className="post-card" key={post.id}>
+              <div className="post-card-header">
                 <div className="post-author-block">
                   <div className="post-avatar">{getAuthorInitial(post.author_name)}</div>
-                  <div className="post-byline">
-                    <span className="post-author">{post.author_name}</span>
-                    <time className="post-time" dateTime={post.created_at}>
+                  <div>
+                    <p className="post-author-name">{post.author_name}</p>
+                    <time className="post-timestamp" dateTime={post.created_at}>
                       {formatDateTime(post.created_at)}
                     </time>
                   </div>
                 </div>
-                <span className="posts-chip">Update</span>
+                <StatusChip tone="accent">League update</StatusChip>
               </div>
+
               <div className="post-content">{renderContentWithLinks(post.content)}</div>
+
               {post.image_url && (
                 <img
                   className="post-image"
                   src={resolveApiUrl(post.image_url)}
-                  alt="Post"
+                  alt="League announcement"
                   loading="lazy"
                 />
               )}
+
               {extractYoutubePreviews(post.content).map((preview) => (
                 <a
-                  className="post-youtube-preview"
+                  className="post-video-link"
                   href={preview.watchUrl}
                   target="_blank"
                   rel="noreferrer"
                   key={preview.id}
                 >
                   <img src={preview.thumbnailUrl} alt="YouTube video thumbnail" loading="lazy" />
-                  <span>Watch on YouTube</span>
+                  <span>Watch linked video</span>
                 </a>
               ))}
-            </article>
+            </SurfaceCard>
           ))}
+        </div>
+      )}
+
+      {isAdmin && composerOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <SurfaceCard className="modal-card">
+            <SectionHeader
+              title="Publish announcement"
+              description="Post a league-wide update with optional image support."
+              action={
+                <button
+                  className="button button-secondary button-small"
+                  type="button"
+                  onClick={() => {
+                    setComposerOpen(false);
+                    setFormError(null);
+                  }}
+                >
+                  Close
+                </button>
+              }
+            />
+            <form className="form-grid form-grid-stacked" onSubmit={handlePublish}>
+              <label className="field">
+                <span>Announcement</span>
+                <textarea
+                  value={content}
+                  onChange={(event) => setContent(event.target.value)}
+                  placeholder="Write an update for the league..."
+                  rows={6}
+                  maxLength={5000}
+                />
+              </label>
+
+              <label className="field">
+                <span>Image</span>
+                <label className="file-trigger">
+                  <span>{imageFile ? imageFile.name : "Choose image"}</span>
+                  <input
+                    key={fileInputKey}
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => handleImageSelect(event.target.files?.[0])}
+                  />
+                </label>
+              </label>
+
+              <div className="form-actions composer-actions">
+                <span className={`character-counter ${remainingChars < 200 ? "low" : ""}`}>
+                  {remainingChars} characters remaining
+                </span>
+                <div className="inline-actions">
+                  {imageFile && (
+                    <button
+                      className="button button-secondary button-small"
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setFileInputKey((prev) => prev + 1);
+                      }}
+                    >
+                      Remove image
+                    </button>
+                  )}
+                  <button className="button button-primary" type="submit" disabled={publishing}>
+                    {publishing ? "Publishing..." : "Publish"}
+                  </button>
+                </div>
+              </div>
+            </form>
+            {formError && <Notice variant="error">{formError}</Notice>}
+            <StatusChip tone="accent">Admins only</StatusChip>
+          </SurfaceCard>
         </div>
       )}
     </section>

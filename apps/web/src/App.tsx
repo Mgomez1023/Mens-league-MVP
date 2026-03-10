@@ -7,6 +7,7 @@ import TeamsPage from "./pages/TeamsPage";
 import GamesPage from "./pages/GamesPage";
 import RosterPage from "./pages/RosterPage";
 import PostsPage from "./pages/PostsPage";
+import StandingsPage from "./pages/StandingsPage";
 import { clearToken, getTokenClaims, isAdminClaim, onUnauthorized, getToken } from "./api";
 
 type AuthState = {
@@ -66,11 +67,13 @@ export default function App() {
         element={
           <DashboardLayout
             authed={auth.authed}
+            isAdmin={auth.isAdmin}
             onLogout={handleLogout}
           />
         }
       >
         <Route index element={<HomePage />} />
+        <Route path="standings" element={<StandingsPage />} />
         <Route
           path="teams"
           element={

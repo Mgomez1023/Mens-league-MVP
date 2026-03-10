@@ -1,63 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  fetchGamesPublic,
-  fetchTeamsPublic,
-  getPosts,
-  resolveApiUrl,
-} from "../api";
+import { fetchGamesPublic, fetchTeamsPublic, getPosts, resolveApiUrl } from "../api";
 import type { Game, Post, Team } from "../api";
-
-function parseDateOnly(value: string) {
-  if (!value) return null;
-  const datePart = value.includes("T") ? value.split("T")[0] : value.split(" ")[0];
-  const date = new Date(`${datePart}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return null;
-  return date;
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatTime(value?: string | null) {
-  if (!value) return "Time TBD";
-  const trimmed = value.trim();
-  if (!trimmed) return "Time TBD";
-  const parts = trimmed.split(":");
-  if (parts.length < 2) return trimmed;
-  const hour = Number(parts[0]);
-  const minute = Number(parts[1].slice(0, 2));
-  if (Number.isNaN(hour) || Number.isNaN(minute)) return trimmed;
-  const temp = new Date();
-  temp.setHours(hour, minute, 0, 0);
-  return temp.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function truncate(value: string, max = 170) {
-  if (value.length <= max) return value;
-  return `${value.slice(0, max).trimEnd()}...`;
-}
+import { PublicGameCard } from "../components/PublicGameCard";
+import {
+  EmptyState,
+  LoadingState,
+  Notice,
+  PageHeader,
+  SectionHeader,
+  StatusChip,
+  SurfaceCard,
+  TeamAvatar,
+} from "../components/ui";
+import {
+  buildTeamMap,
+  formatDateTime,
+  getRecentResults,
+  getRecord,
+  getUpcomingGames,
+  sortStandings,
+  truncate,
+} from "../utils/league";
 
 export default function HomePage() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -90,203 +54,268 @@ export default function HomePage() {
         gamesRes.status === "rejected" &&
         postsRes.status === "rejected"
       ) {
-        setError("Unable to load league dashboard right now.");
+        setError("Unable to load the league dashboard right now.");
       }
 
       setLoading(false);
     };
 
     void load();
-
     return () => {
       active = false;
     };
   }, []);
 
-  const teamMap = useMemo(() => {
-    const map: Record<number, Team> = {};
-    teams.forEach((team) => {
-      map[team.id] = team;
-    });
-    return map;
-  }, [teams]);
-
-  const recentPosts = useMemo(() => posts.slice(0, 4), [posts]);
-
-  const nextWeekGames = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const upcoming = games
-      .map((game) => ({ game, date: parseDateOnly(game.date) }))
-      .filter((entry) => entry.date && entry.date >= today) as Array<{ game: Game; date: Date }>;
-
-    if (upcoming.length === 0) return [];
-
-    upcoming.sort((a, b) => {
-      const diff = a.date.getTime() - b.date.getTime();
-      if (diff !== 0) return diff;
-      return a.game.id - b.game.id;
-    });
-
-    const windowStart = upcoming[0].date;
-    const windowEnd = new Date(windowStart);
-    windowEnd.setDate(windowEnd.getDate() + 7);
-
-    return upcoming
-      .filter((entry) => entry.date <= windowEnd)
-      .map((entry) => entry.game)
-      .sort((a, b) => {
-        const dateDiff = a.date.localeCompare(b.date);
-        if (dateDiff !== 0) return dateDiff;
-        return (a.time ?? "").localeCompare(b.time ?? "");
-      });
-  }, [games]);
-
-  const visibleNextWeekGames = useMemo(() => nextWeekGames.slice(0, 4), [nextWeekGames]);
-
-  const standings = useMemo(() => {
-    return [...teams].sort((a, b) => {
-      const winsDiff = (b.wins ?? 0) - (a.wins ?? 0);
-      if (winsDiff !== 0) return winsDiff;
-      const lossesDiff = (a.losses ?? 0) - (b.losses ?? 0);
-      if (lossesDiff !== 0) return lossesDiff;
-      return a.name.localeCompare(b.name);
-    });
-  }, [teams]);
+  const teamMap = useMemo(() => buildTeamMap(teams), [teams]);
+  const standings = useMemo(() => sortStandings(teams), [teams]);
+  const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 5), [games]);
+  const recentResults = useMemo(() => getRecentResults(games).slice(0, 4), [games]);
+  const latestPosts = useMemo(() => posts.slice(0, 4), [posts]);
 
   return (
-    <section className="home-page">
-      <div className="home-hero">
-        <h1>Benito Juarez Men&apos;s League</h1>
-      </div>
+    <section className="page-stack">
 
-      {loading && <p className="status">Loading league dashboard...</p>}
-      {!loading && error && <p className="status error">{error}</p>}
+      <PageHeader
+        eyebrow=""
+        title="Benito Juarez Men's League"
+        description=""
+      />
 
-      {!loading && (
-        <>
-          <div className="home-grid">
-            <article className="home-panel">
-              <div className="panel-head">
-                <h2>Latest Posts</h2>
-                <Link className="table-link" to="/posts">
-                  View all
-                </Link>
-              </div>
-              {recentPosts.length === 0 && <p className="status">No posts yet.</p>}
-              {recentPosts.length > 0 && (
-                <div className="home-post-list">
-                  {recentPosts.map((post) => (
-                    <article key={post.id} className="home-post-item">
-                      <div className="home-post-meta">
-                        <span className="home-post-author">{post.author_name}</span>
-                        <time dateTime={post.created_at}>{formatDateTime(post.created_at)}</time>
-                      </div>
-                      <p>{truncate(post.content)}</p>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </article>
+      {/* 
 
-            <article className="home-panel">
-              <div className="panel-head">
-                <h2>Next Week Games</h2>
-              </div>
-              {visibleNextWeekGames.length === 0 && (
-                <p className="status">No upcoming games scheduled.</p>
-              )}
-              {visibleNextWeekGames.length > 0 && (
-                <div className="home-game-list">
-                  {visibleNextWeekGames.map((game) => {
-                    const home = teamMap[game.home_team_id]?.name ?? `Team ${game.home_team_id}`;
-                    const away = teamMap[game.away_team_id]?.name ?? `Team ${game.away_team_id}`;
-                    const homeLogo = teamMap[game.home_team_id]?.logo_url;
-                    const awayLogo = teamMap[game.away_team_id]?.logo_url;
+      <PageHeader
+        eyebrow="League operations dashboard"
+        title="Benito Juarez Men's League"
+        description="Official schedule, standings, team rosters, and league announcements for players, families, and commissioners."
+      />
+      
+      */}
+
+      
+      {/* 
+      
+        <SurfaceCard tone="accent" className="hero-card">
+          <div className="hero-card-copy">
+            <p className="hero-kicker">{seasonLabel}</p>
+            <h2>Everything the league needs on one board.</h2>
+            <p>
+              Check the next game day, recent finals, current standings, and the latest
+              commissioner updates without digging through separate pages.
+            </p>
+          </div>
+          <div className="hero-stats">
+            <StatPill label="Teams" value={teams.length} />
+            <StatPill label="Upcoming games" value={upcomingGames.length} />
+            <StatPill label="Final scores" value={recentResults.length} />
+            <StatPill label="Announcements" value={posts.length} />
+          </div>
+        </SurfaceCard>
+      
+      
+      */}
+
+      {loading && <LoadingState label="Loading league dashboard..." />}
+      {!loading && error && <Notice variant="error">{error}</Notice>}
+
+      {!loading && !error && (
+        <div className="home-layout">
+          <div className="home-primary">
+            <SurfaceCard>
+              <SectionHeader
+                title="Upcoming games"
+                description=""
+                action={
+                  <Link className="button button-secondary button-small" to="/games">
+                    Full schedule
+                  </Link>
+                }
+              />
+              {upcomingGames.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="No games scheduled yet"
+                  description="Upcoming matchups will appear here as soon as the schedule is posted."
+                />
+              ) : (
+                <div className="matchup-list">
+                  {upcomingGames.map((game) => {
+                    const away = teamMap[game.away_team_id];
+                    const home = teamMap[game.home_team_id];
                     return (
-                      <div className="home-game-item" key={game.id}>
-                        <div className="home-game-head">
-                          <span>{formatDate(game.date)}</span>
-                          <span>{formatTime(game.time)}</span>
-                        </div>
-                        <div className="home-game-teams">
-                          <div className="home-game-team">
-                            {awayLogo ? (
-                              <img src={resolveApiUrl(awayLogo)} alt={`${away} logo`} />
-                            ) : (
-                              <div className="home-game-fallback">{away.charAt(0)}</div>
-                            )}
-                            <span>{away}</span>
-                          </div>
-                          <span className="home-game-vs">vs</span>
-                          <div className="home-game-team">
-                            {homeLogo ? (
-                              <img src={resolveApiUrl(homeLogo)} alt={`${home} logo`} />
-                            ) : (
-                              <div className="home-game-fallback">{home.charAt(0)}</div>
-                            )}
-                            <span>{home}</span>
-                          </div>
-                        </div>
-                      </div>
+                      <PublicGameCard
+                        key={game.id}
+                        className="home-game-card"
+                        game={game}
+                        awayTeamName={away?.name ?? `Team ${game.away_team_id}`}
+                        awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
+                        homeTeamName={home?.name ?? `Team ${game.home_team_id}`}
+                        homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
+                        showMetaDate
+                        variant="featured"
+                      />
                     );
                   })}
                 </div>
               )}
-              {nextWeekGames.length > 0 && (
-                <div className="home-games-more">
-                  <Link className="ghost-link" to="/games">
-                    View more
-                  </Link>
+            </SurfaceCard>
+
+            <SurfaceCard>
+              <SectionHeader
+                title="Recent results"
+                description="Latest final scores already entered into the league schedule."
+              />
+              {recentResults.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="No final scores yet"
+                  description="Completed games will show here once results are posted."
+                />
+              ) : (
+                <div className="results-list">
+                  {recentResults.map((game) => {
+                    const away = teamMap[game.away_team_id];
+                    const home = teamMap[game.home_team_id];
+                    return (
+                      <PublicGameCard
+                        key={game.id}
+                        className="home-game-card"
+                        game={game}
+                        awayTeamName={away?.name ?? `Team ${game.away_team_id}`}
+                        awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
+                        homeTeamName={home?.name ?? `Team ${game.home_team_id}`}
+                        homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
+                        showMetaDate
+                        variant="featured"
+                      />
+                    );
+                  })}
                 </div>
               )}
-            </article>
+            </SurfaceCard>
+
+            <SurfaceCard>
+              <SectionHeader
+                title="League announcements"
+                description="Recent commissioner updates and public notices."
+                action={
+                  <Link className="button button-secondary button-small" to="/posts">
+                    All announcements
+                  </Link>
+                }
+              />
+              {latestPosts.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="No announcements yet"
+                  description="Public league updates will appear here."
+                />
+              ) : (
+                <div className="announcement-list">
+                  {latestPosts.map((post) => (
+                    <article className="announcement-card" key={post.id}>
+                      <div className="announcement-header">
+                        <div>
+                          <p className="announcement-author">{post.author_name}</p>
+                          <time className="announcement-time" dateTime={post.created_at}>
+                            {formatDateTime(post.created_at)}
+                          </time>
+                        </div>
+                        <StatusChip tone="accent">Announcement</StatusChip>
+                      </div>
+                      <p className="announcement-content">{truncate(post.content, 220)}</p>
+                      {post.image_url && (
+                        <img
+                          className="announcement-image"
+                          src={resolveApiUrl(post.image_url)}
+                          alt="League announcement"
+                          loading="lazy"
+                        />
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </SurfaceCard>
           </div>
 
-          <article className="home-panel standings-panel">
-            <div className="panel-head">
-              <h2>Standings</h2>
-              <Link className="table-link" to="/teams">
-                Teams
-              </Link>
-            </div>
-            {standings.length === 0 && <p className="status">No teams available.</p>}
-            {standings.length > 0 && (
-              <table className="data-table standings-table">
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Team</th>
-                    <th>Record</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {standings.map((team, index) => (
-                    <tr key={team.id}>
-                      <td data-label="Rank">
-                        <span className="standings-rank">#{index + 1}</span>
-                      </td>
-                      <td data-label="Team">
-                        <div className="standings-team">
-                          {team.logo_url ? (
-                            <img src={resolveApiUrl(team.logo_url)} alt={`${team.name} logo`} />
-                          ) : (
-                            <div className="standings-fallback">{team.name.charAt(0)}</div>
-                          )}
-                          <span>{team.name}</span>
-                        </div>
-                      </td>
-                      <td data-label="Record" className="standings-record">
-                        {(team.wins ?? 0)}-{(team.losses ?? 0)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </article>
-        </>
+          <div className="home-secondary">
+            <SurfaceCard>
+              <SectionHeader
+                title="Standings snapshot"
+                description=""
+                action={
+                  <Link className="button button-secondary button-small" to="/standings">
+                    Full standings
+                  </Link>
+                }
+              />
+              {standings.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="No standings yet"
+                  description="Team records will appear after final scores are entered."
+                />
+              ) : (
+                <div className="table-wrap">
+                  <table className="league-table compact-table">
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Team</th>
+                        <th>Record</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {standings.slice(0, 6).map((team, index) => (
+                        <tr key={team.id}>
+                          <td data-label="Rank">#{index + 1}</td>
+                          <td data-label="Team">
+                            <div className="table-team">
+                              <TeamAvatar
+                                name={team.name}
+                                src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
+                                size="sm"
+                              />
+                              <span>{team.name}</span>
+                            </div>
+                          </td>
+                          <td data-label="Record">{getRecord(team)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </SurfaceCard>
+
+            <SurfaceCard>
+              <SectionHeader title="Quick links" description="" />
+              <div className="quick-links">
+                <Link className="quick-link-card" to="/games">
+                  <strong>Today's schedule</strong>
+                  <span>Check upcoming matchups and final scores.</span>
+                </Link>
+                <Link className="quick-link-card" to="/teams">
+                  <strong>Team rosters</strong>
+                  <span>Browse teams, records, and player lists.</span>
+                </Link>
+                <Link className="quick-link-card" to="/posts">
+                  <strong>Announcements</strong>
+                  <span>Read recent league updates and notices.</span>
+                </Link>
+              </div>
+            </SurfaceCard>
+
+            <SurfaceCard tone="subtle">
+              <SectionHeader title="Season note" />
+              <p className="season-note">
+                This portal is designed for quick checks at the field: schedule first,
+                standings second, announcements close at hand, and commissioner tools
+                available without leaving the main workflow pages.
+              </p>
+            </SurfaceCard>
+          </div>
+        </div>
       )}
     </section>
   );
