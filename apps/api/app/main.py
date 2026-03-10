@@ -73,7 +73,10 @@ def ensure_team_columns():
             statements.append("ALTER TABLE teams ADD COLUMN logo_image BLOB")
 
     if "logo_updated_at" not in columns:
-        statements.append("ALTER TABLE teams ADD COLUMN logo_updated_at DATETIME")
+        if engine.dialect.name == "postgresql":
+            statements.append("ALTER TABLE teams ADD COLUMN logo_updated_at TIMESTAMP")
+        else:
+            statements.append("ALTER TABLE teams ADD COLUMN logo_updated_at DATETIME")
 
     if not statements:
         return
