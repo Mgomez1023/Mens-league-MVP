@@ -20,6 +20,8 @@ class Settings:
         database_url = os.getenv("DATABASE_URL", "sqlite:///./app.db")
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql://", 1)
+        if database_url.startswith("postgresql://"):
+            database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
         self.database_url = database_url
 
         self.jwt_secret = os.getenv("JWT_SECRET", "dev-change-me")
