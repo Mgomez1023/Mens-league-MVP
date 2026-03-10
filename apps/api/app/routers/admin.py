@@ -4,6 +4,7 @@ from io import BytesIO
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel, Field
 from PIL import Image, ImageOps
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..deps import get_db, get_current_admin
@@ -12,6 +13,22 @@ from ..standings import compute_team_records
 from ..storage import team_logo_path, team_logo_url
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def commit_or_raise(
+    db: Session,
+    *,
+    conflict_detail: str = "Request conflicts with existing data",
+):
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=conflict_detail) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Database error while saving changes") from exc
+
 
 def serialize_team(team: Team, record: dict[str, int]):
     return {
@@ -113,7 +130,7 @@ def create_team(
 
     team = Team(name=payload.name, home_field=payload.home_field)
     db.add(team)
-    db.commit()
+    commit_or_raise(db, conflict_detail="Team name already exists")
     db.refresh(team)
     return serialize_team(team, {"wins": 0, "losses": 0})
 
@@ -149,7 +166,7 @@ def delete_team(
         db.query(Player).filter(Player.team_id == team_id).delete(synchronize_session=False)
 
     db.delete(team)
-    db.commit()
+    commit_or_raise(db)
     return {"ok": True}
 
 
@@ -233,7 +250,7 @@ def create_game(
         status=payload.status,
     )
     db.add(game)
-    db.commit()
+    commit_or_raise(db)
     db.refresh(game)
     return serialize_game(game)
 
@@ -276,7 +293,7 @@ def update_game(
     if payload.away_score is not None:
         game.away_score = payload.away_score
 
-    db.commit()
+    commit_or_raise(db)
     db.refresh(game)
     return serialize_game(game)
 
@@ -291,7 +308,7 @@ def delete_game(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     db.delete(game)
-    db.commit()
+    commit_or_raise(db)
     return {"ok": True}
 
 
@@ -301,7 +318,7 @@ def delete_all_games(
     db: Session = Depends(get_db),
 ):
     db.query(Game).delete(synchronize_session=False)
-    db.commit()
+    commit_or_raise(db)
     return {"ok": True}
 
 
@@ -334,17 +351,34 @@ def create_player(
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
 
+    first_name = payload.first_name.strip()
+    last_name = payload.last_name.strip()
+    if not first_name or not last_name:
+        raise HTTPException(status_code=400, detail="First and last name are required")
+
+    duplicate = (
+        db.query(Player)
+        .filter(
+            Player.team_id == team_id,
+            Player.first_name == first_name,
+            Player.last_name == last_name,
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=400, detail="Player already exists on this team")
+
     player = Player(
         team_id=team_id,
-        first_name=payload.first_name,
-        last_name=payload.last_name,
+        first_name=first_name,
+        last_name=last_name,
         number=payload.number,
         position=payload.position,
         bats=payload.bats,
         throws=payload.throws,
     )
     db.add(player)
-    db.commit()
+    commit_or_raise(db, conflict_detail="Player already exists on this team")
     db.refresh(player)
     return serialize_player(player)
 
@@ -360,16 +394,35 @@ def update_player(
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
 
+    next_team_id = payload.team_id if payload.team_id is not None else player.team_id
+    next_first_name = payload.first_name.strip() if payload.first_name is not None else player.first_name
+    next_last_name = payload.last_name.strip() if payload.last_name is not None else player.last_name
+    if not next_first_name or not next_last_name:
+        raise HTTPException(status_code=400, detail="First and last name are required")
+
     if payload.team_id is not None:
         team = db.get(Team, payload.team_id)
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
         player.team_id = payload.team_id
 
+    duplicate = (
+        db.query(Player)
+        .filter(
+            Player.id != player_id,
+            Player.team_id == next_team_id,
+            Player.first_name == next_first_name,
+            Player.last_name == next_last_name,
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(status_code=400, detail="Player already exists on this team")
+
     if payload.first_name is not None:
-        player.first_name = payload.first_name
+        player.first_name = next_first_name
     if payload.last_name is not None:
-        player.last_name = payload.last_name
+        player.last_name = next_last_name
     if payload.number is not None:
         player.number = payload.number
     if payload.position is not None:
@@ -379,7 +432,7 @@ def update_player(
     if payload.throws is not None:
         player.throws = payload.throws
 
-    db.commit()
+    commit_or_raise(db, conflict_detail="Player already exists on this team")
     db.refresh(player)
     return serialize_player(player)
 
@@ -394,5 +447,5 @@ def delete_player(
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     db.delete(player)
-    db.commit()
+    commit_or_raise(db)
     return {"ok": True}

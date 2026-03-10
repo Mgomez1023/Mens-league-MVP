@@ -1,4 +1,6 @@
 import os
+import shutil
+from pathlib import Path
 
 
 def _parse_csv_env(value: str) -> list[str]:
@@ -15,9 +17,36 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
+def _prepare_vercel_sqlite(database_url: str) -> str:
+    target_path = Path("/tmp/app.db")
+    if target_path.exists():
+        return f"sqlite:////tmp/app.db"
+
+    source_path: Path | None = None
+    if database_url.startswith("sqlite:///./"):
+        relative = database_url.removeprefix("sqlite:///./")
+        source_path = Path.cwd() / relative
+    elif database_url.startswith("sqlite:////"):
+        source_path = Path(database_url.removeprefix("sqlite:////"))
+    elif database_url.startswith("sqlite:///"):
+        relative = database_url.removeprefix("sqlite:///")
+        source_path = Path.cwd() / relative
+
+    if source_path and source_path.exists():
+        try:
+            shutil.copy2(source_path, target_path)
+        except Exception:
+            # If copy fails, SQLAlchemy will create an empty DB in /tmp.
+            pass
+
+    return f"sqlite:////tmp/app.db"
+
+
 class Settings:
     def __init__(self) -> None:
         database_url = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+        if os.getenv("VERCEL") == "1" and database_url.startswith("sqlite"):
+            database_url = _prepare_vercel_sqlite(database_url)
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql://", 1)
         if database_url.startswith("postgresql://"):
