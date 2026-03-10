@@ -4,6 +4,7 @@ import re
 from io import BytesIO, TextIOWrapper
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse, Response
 from PIL import Image
 from sqlalchemy.orm import Session
 
@@ -11,7 +12,7 @@ from ..deps import get_db, get_current_admin
 from ..models import Team, Game, Player, Post, Season, User
 from ..schemas import PostOut
 from ..standings import compute_team_records
-from ..storage import team_logo_url, post_image_path, post_image_url
+from ..storage import team_logo_path, team_logo_url, post_image_path, post_image_url
 
 router = APIRouter(tags=["public"])
 
@@ -23,7 +24,11 @@ def serialize_team(team: Team, record: dict[str, int]):
         "home_field": team.home_field,
         "wins": record.get("wins", 0),
         "losses": record.get("losses", 0),
-        "logo_url": team_logo_url(team.id),
+        "logo_url": team_logo_url(
+            team.id,
+            has_db_logo=team.logo_image is not None,
+            logo_updated_at=team.logo_updated_at,
+        ),
     }
 
 
@@ -69,6 +74,26 @@ def list_teams(db: Session = Depends(get_db)):
     teams = db.query(Team).order_by(Team.name.asc()).all()
     records = compute_team_records(db, [team.id for team in teams])
     return [serialize_team(team, records.get(team.id, {})) for team in teams]
+
+
+@router.get("/teams/{team_id}/logo")
+def get_team_logo(team_id: int, db: Session = Depends(get_db)):
+    team = db.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    if team.logo_image:
+        return Response(
+            content=team.logo_image,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
+
+    path = team_logo_path(team_id)
+    if path.exists():
+        return FileResponse(path, media_type="image/jpeg")
+
+    raise HTTPException(status_code=404, detail="Logo not found")
 
 
 @router.get("/games")

@@ -14,6 +14,7 @@ import {
   fetchTeamsPublic,
   importRosterCsv,
   resolveApiUrl,
+  uploadTeamLogo,
   updatePlayer,
 } from "../api";
 import type { Game, Player, Team } from "../api";
@@ -69,6 +70,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [importResult, setImportResult] = useState<{
     created: number;
     updated: number;
@@ -315,6 +317,49 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
     }
   };
 
+  const handleTeamLogoUpload = async (file: File | null) => {
+    if (!file || uploadingLogo) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload a valid image file.");
+      return;
+    }
+    if (!teamId || Number.isNaN(teamNumericId)) {
+      setError("Invalid team selection.");
+      return;
+    }
+
+    setUploadingLogo(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const result = await uploadTeamLogo(teamNumericId, file);
+      setTeam((prev) => (prev ? { ...prev, logo_url: result.logo_url } : prev));
+      setAllTeams((prev) =>
+        prev.map((entry) =>
+          entry.id === teamNumericId ? { ...entry, logo_url: result.logo_url } : entry,
+        ),
+      );
+      setNotice("Team logo updated.");
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        return;
+      }
+      if (err instanceof PermissionError) {
+        setError("Admin access required.");
+        return;
+      }
+      if (err instanceof ApiError && err.detail) {
+        setError(err.detail);
+        return;
+      }
+      setError("Unable to upload the team logo right now.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   return (
     <section className="page-stack">
       <PageHeader
@@ -340,6 +385,19 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                     onChange={(event) => {
                       const file = event.target.files?.[0] ?? null;
                       if (file) handleCsvImport(file);
+                    }}
+                  />
+                </label>
+                <label className="button button-secondary file-button-inline">
+                  {uploadingLogo ? "Uploading logo..." : "Upload logo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingLogo}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      event.currentTarget.value = "";
+                      void handleTeamLogoUpload(file);
                     }}
                   />
                 </label>
@@ -373,14 +431,16 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                 </p>
               </div>
             </div>
-            <div className="team-summary-stats">
-              <div className="summary-stat">
-                <span>Record</span>
-                <strong>{team ? getRecord(team) : "0-0"}</strong>
-              </div>
-              <div className="summary-stat">
-                <span>Players</span>
-                <strong>{players.length}</strong>
+            <div className="team-summary-side">
+              <div className="team-summary-stats">
+                <div className="summary-stat">
+                  <span>Record</span>
+                  <strong>{team ? getRecord(team) : "0-0"}</strong>
+                </div>
+                <div className="summary-stat">
+                  <span>Players</span>
+                  <strong>{players.length}</strong>
+                </div>
               </div>
             </div>
           </SurfaceCard>

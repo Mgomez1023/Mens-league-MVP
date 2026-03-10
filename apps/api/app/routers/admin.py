@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ..deps import get_db, get_current_admin
 from ..models import Game, Player, Season, Team, User
 from ..standings import compute_team_records
-from ..storage import team_logo_path, team_logo_url
+from ..storage import team_logo_url
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -37,7 +37,11 @@ def serialize_team(team: Team, record: dict[str, int]):
         "home_field": team.home_field,
         "wins": record.get("wins", 0),
         "losses": record.get("losses", 0),
-        "logo_url": team_logo_url(team.id),
+        "logo_url": team_logo_url(
+            team.id,
+            has_db_logo=team.logo_image is not None,
+            logo_updated_at=team.logo_updated_at,
+        ),
     }
 
 def serialize_game(game: Game):
@@ -197,21 +201,23 @@ def upload_team_logo(
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Unable to save image") from exc
 
-    output.seek(0)
-    path = team_logo_path(team_id)
-    tmp_path = path.with_suffix(".tmp")
     try:
-        with open(tmp_path, "wb") as handle:
-            handle.write(output.read())
-        tmp_path.replace(path)
-    finally:
-        if tmp_path.exists():
-            try:
-                tmp_path.unlink()
-            except Exception:
-                pass
+        team.logo_image = output.getvalue()
+        team.logo_updated_at = datetime.datetime.utcnow()
+        commit_or_raise(db)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Unable to save image") from exc
 
-    return {"logo_url": team_logo_url(team_id)}
+    return {
+        "logo_url": team_logo_url(
+            team.id,
+            has_db_logo=True,
+            logo_updated_at=team.logo_updated_at,
+        )
+    }
 
 
 @router.get("/games")

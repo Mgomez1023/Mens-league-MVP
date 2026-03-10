@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -22,7 +23,23 @@ def team_logo_path(team_id: int) -> Path:
     return TEAM_LOGO_DIR / f"{team_id}.jpg"
 
 
-def team_logo_url(team_id: int) -> str | None:
+def team_logo_url(
+    team_id: int,
+    *,
+    has_db_logo: bool = False,
+    logo_updated_at: datetime | None = None,
+) -> str | None:
+    if has_db_logo:
+        if logo_updated_at:
+            timestamp = (
+                logo_updated_at.timestamp()
+                if logo_updated_at.tzinfo
+                else logo_updated_at.replace(tzinfo=timezone.utc).timestamp()
+            )
+            version = int(timestamp)
+        else:
+            version = 0
+        return f"/teams/{team_id}/logo?v={version}"
     path = team_logo_path(team_id)
     if path.exists():
         return f"/uploads/teams/{team_id}.jpg"

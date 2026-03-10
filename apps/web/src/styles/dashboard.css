@@ -1325,6 +1325,36 @@ body {
   flex-wrap: wrap;
 }
 
+.team-summary-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.team-summary-admin {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.team-summary-admin-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.team-summary-admin-copy p {
+  max-width: 28ch;
+  text-align: right;
+  color: rgba(243, 229, 206, 0.76);
+}
+
 .summary-stat {
   min-width: 120px;
   padding: var(--space-4);
@@ -1430,6 +1460,21 @@ body {
 
   .page-header-actions {
     width: 100%;
+  }
+
+  .team-summary-side,
+  .team-summary-admin-copy {
+    align-items: stretch;
+  }
+
+  .team-summary-admin,
+  .team-summary-stats {
+    justify-content: flex-start;
+  }
+
+  .team-summary-admin-copy p {
+    max-width: none;
+    text-align: left;
   }
 
   .form-grid,

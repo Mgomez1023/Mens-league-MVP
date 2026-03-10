@@ -9,7 +9,7 @@ from datetime import date
 
 from .models import Season, Team, User
 from .security import hash_password
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from .routers.auth import router as auth_router
 from .routers.admin import router as admin_router
@@ -60,6 +60,29 @@ def ensure_post_columns():
             conn.execute(text("UPDATE posts SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
 
 ensure_post_columns()
+
+def ensure_team_columns():
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns("teams")}
+    statements: list[str] = []
+
+    if "logo_image" not in columns:
+        if engine.dialect.name == "postgresql":
+            statements.append("ALTER TABLE teams ADD COLUMN logo_image BYTEA")
+        else:
+            statements.append("ALTER TABLE teams ADD COLUMN logo_image BLOB")
+
+    if "logo_updated_at" not in columns:
+        statements.append("ALTER TABLE teams ADD COLUMN logo_updated_at DATETIME")
+
+    if not statements:
+        return
+
+    with engine.begin() as conn:
+        for statement in statements:
+            conn.execute(text(statement))
+
+ensure_team_columns()
 
 allow_all_origins = "*" in settings.cors_allow_origins
 app.add_middleware(
