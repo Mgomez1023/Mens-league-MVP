@@ -34,6 +34,13 @@ class Settings:
                 "http://localhost:5173,http://127.0.0.1:5173",
             )
         )
+        # Keep local dev explicit, and allow Vercel web deployments by default.
+        self.cors_allow_origin_regex = os.getenv(
+            "CORS_ALLOW_ORIGIN_REGEX",
+            r"https://.*\.vercel\.app",
+        )
+        if self.cors_allow_origin_regex == "":
+            self.cors_allow_origin_regex = None
 
         self.admin_email = os.getenv("ADMIN_EMAIL", "admin@league.local")
         self.admin_password = os.getenv("ADMIN_PASSWORD", "admin123")

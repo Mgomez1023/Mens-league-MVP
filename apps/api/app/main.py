@@ -65,6 +65,7 @@ allow_all_origins = "*" in settings.cors_allow_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if allow_all_origins else settings.cors_allow_origins,
+    allow_origin_regex=None if allow_all_origins else settings.cors_allow_origin_regex,
     allow_credentials=not allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
