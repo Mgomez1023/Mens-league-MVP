@@ -703,8 +703,6 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                       const isFinal = isFinalGame(game.status);
                       const score = getGameScore(game);
                       const location = getGameShortLocation(game);
-                      const hasDirections = !!getGameAddress(game);
-                      const fieldNumber = getGameFieldNumber(game);
 
                       return (
                         <div key={game.id} className="schedule-mobile-row-shell">
