@@ -34,7 +34,7 @@ type DetailRowProps = {
 
 function DetailRow({ label, value }: DetailRowProps) {
   return (
-    <div className="game-details-row">
+    <div className="game-info-row">
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
@@ -84,6 +84,13 @@ export function GameDetailsDialog({
   const mapsUrl = address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
     : null;
+  const heroCaption = locationName
+    ? locationName
+    : fieldNumber
+      ? `Field ${fieldNumber}`
+      : isFinal
+        ? "Matchup complete"
+        : "Scheduled matchup";
 
   return (
     <div
@@ -105,80 +112,100 @@ export function GameDetailsDialog({
               {awayTeam.name} vs {homeTeam.name}
             </h2>
           </div>
-          <div className="game-details-header-actions">
+          <button
+            ref={closeButtonRef}
+            className="game-details-close"
+            type="button"
+            onClick={onClose}
+            aria-label="Close game details"
+          >
+            <span aria-hidden="true">x</span>
+          </button>
+        </div>
+
+        <section className="game-details-hero">
+          <div className="game-details-hero-bar">
             <StatusChip tone={status.tone}>{status.label}</StatusChip>
-            <button
-              ref={closeButtonRef}
-              className="button button-secondary button-small"
-              type="button"
-              onClick={onClose}
-            >
-              Close
-            </button>
+            <p className="game-details-hero-caption">{heroCaption}</p>
           </div>
-        </div>
 
-        <div className="game-details-matchup">
-          <div className="game-details-team">
-            <TeamAvatar name={awayTeam.name} src={awayTeam.logoSrc} size="lg" />
-            <div>
-              <p className="game-details-team-label">Away</p>
-              <p className="game-details-team-name">{awayTeam.name}</p>
+          <div className="game-details-matchup">
+            <div className="game-details-team game-details-team-away">
+              <TeamAvatar name={awayTeam.name} src={awayTeam.logoSrc} size="lg" />
+              <div className="game-details-team-copy">
+                <p className="game-details-team-label">Away</p>
+                <p className="game-details-team-name">{awayTeam.name}</p>
+              </div>
+              {isFinal && score && <p className="game-details-team-score">{score.away}</p>}
             </div>
-            {isFinal && score && <p className="game-details-team-score">{score.away}</p>}
-          </div>
 
-          <div className="game-details-center">
-            {isFinal && score ? (
-              <>
-                <p className="game-details-score-label">Final score</p>
-                <p className="game-details-scoreline">
-                  {score.away} - {score.home}
-                </p>
-              </>
-            ) : (
-              <p className="game-details-versus">VS.</p>
-            )}
-          </div>
-
-          <div className="game-details-team">
-            <TeamAvatar name={homeTeam.name} src={homeTeam.logoSrc} size="lg" />
-            <div>
-              <p className="game-details-team-label">Home</p>
-              <p className="game-details-team-name">{homeTeam.name}</p>
+            <div className="game-details-center">
+              {isFinal && score ? (
+                <>
+                  <p className="game-details-score-label">Final</p>
+                  <p className="game-details-scoreline">
+                    <span>{score.away}</span>
+                    <span className="game-details-score-divider">-</span>
+                    <span>{score.home}</span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="game-details-score-label">{status.label}</p>
+                  <p className="game-details-hero-time">{formatTime(game.time)}</p>
+                  <p className="game-details-hero-date">{formatFullGameDate(game)}</p>
+                </>
+              )}
             </div>
-            {isFinal && score && <p className="game-details-team-score">{score.home}</p>}
-          </div>
-        </div>
 
-        <dl className="game-details-grid">
-          <DetailRow label="Date" value={formatFullGameDate(game)} />
-          <DetailRow label="Time" value={formatTime(game.time)} />
-          {locationName && <DetailRow label="Location" value={locationName} />}
-          {fieldNumber && <DetailRow label="Field" value={fieldNumber} />}
-          {address && <DetailRow label="Address" value={address} />}
-          {notes && <DetailRow label="Notes" value={notes} />}
-          {isFinal && score && (
+            <div className="game-details-team game-details-team-home">
+              <TeamAvatar name={homeTeam.name} src={homeTeam.logoSrc} size="lg" />
+              <div className="game-details-team-copy">
+                <p className="game-details-team-label">Home</p>
+                <p className="game-details-team-name">{homeTeam.name}</p>
+              </div>
+              {isFinal && score && <p className="game-details-team-score">{score.home}</p>}
+            </div>
+          </div>
+        </section>
+
+        <section className="game-details-section">
+          <div className="game-details-section-head">
+            <h3>Game Info</h3>
+          </div>
+          <dl className="game-info-list">
             <DetailRow
-              label="Result"
-              value={`${awayTeam.name} ${score.away} - ${score.home} ${homeTeam.name}`}
+              label="Date & Time"
+              value={`${formatFullGameDate(game)} • ${formatTime(game.time)}`}
             />
-          )}
-        </dl>
-
-        <div className="game-details-actions">
+            {locationName && <DetailRow label="Location" value={locationName} />}
+            {fieldNumber && <DetailRow label="Field" value={`Field ${fieldNumber}`} />}
+            {address && <DetailRow label="Address" value={address} />}
+          </dl>
           {mapsUrl ? (
-            <a
-              className="button button-primary"
-              href={mapsUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Get Directions
-            </a>
+            <div className="game-details-actions">
+              <a
+                className="button button-primary"
+                href={mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Get Directions
+              </a>
+            </div>
           ) : null}
-          {footer}
-        </div>
+        </section>
+
+        {notes ? (
+          <section className="game-details-section game-details-section-notes">
+            <div className="game-details-section-head">
+              <h3>Notes</h3>
+            </div>
+            <p className="game-details-notes">{notes}</p>
+          </section>
+        ) : null}
+
+        {footer ? <div className="game-details-actions game-details-actions-footer">{footer}</div> : null}
       </SurfaceCard>
     </div>
   );

@@ -369,7 +369,7 @@ body {
   right: 0;
   width: min(320px, 88vw);
   height: 100vh;
-  padding: 6rem var(--space-5) var(--space-5);
+  padding: var(--space-5);
   background:
     radial-gradient(circle at top right, rgba(181, 95, 67, 0.18), transparent 30%),
     linear-gradient(180deg, #18283d 0%, #0b121c 100%);
@@ -1593,72 +1593,226 @@ body {
 .game-details-dialog {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
+  padding: var(--space-5);
 }
 
 .game-details-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
+}
+
+.game-details-header-copy {
+  flex: 1;
+  min-width: 0;
 }
 
 .game-details-header-copy h2 {
-  margin: 0.35rem 0 0;
+  margin: 0.2rem 0 0;
   color: #352316;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 1.3rem + 1.8vw, 3rem);
+  font-size: clamp(1.8rem, 1.15rem + 1.5vw, 2.65rem);
   letter-spacing: 0.04em;
-  line-height: 0.94;
+  line-height: 0.96;
   text-transform: uppercase;
 }
 
-.game-details-header-actions {
+.game-details-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid rgba(149, 97, 57, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 248, 237, 0.55);
+  color: #6a4d34;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.game-details-close:hover,
+.game-details-close:focus-visible {
+  border-color: rgba(149, 97, 57, 0.48);
+  background: rgba(255, 248, 237, 0.86);
+  color: #2f2118;
+}
+
+.game-details-close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.game-details-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top center, rgba(182, 51, 44, 0.08), transparent 42%),
+    linear-gradient(180deg, rgba(255, 248, 237, 0.82), rgba(237, 219, 191, 0.9));
+  border: 1px solid rgba(149, 97, 57, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+.game-details-hero-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.game-details-hero-caption,
+.game-details-hero-date {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.92rem;
 }
 
 .game-details-matchup {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: var(--space-4);
+  gap: clamp(1rem, 2vw, 2rem);
+  align-items: stretch;
+}
+
+.game-details-team {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.game-details-center {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.game-details-team-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: center;
+}
+
+.game-details-team .team-avatar-lg {
+  width: 4.75rem;
+  height: 4.75rem;
+}
+
+.game-details-team-name {
+  max-width: 12ch;
+  font-size: 1.05rem;
+  text-wrap: balance;
+}
+
+.game-details-team-score {
+  font-size: clamp(1.9rem, 1.1rem + 1.3vw, 2.5rem);
+}
+
+.game-details-score-label,
+.game-details-team-label,
+.game-details-kicker {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.game-details-scoreline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  color: #2f2118;
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 1.6rem + 2vw, 4.3rem);
+  line-height: 0.92;
+}
+
+.game-details-score-divider {
+  color: rgba(106, 77, 52, 0.72);
+}
+
+.game-details-hero-time {
+  margin: 0;
+  color: #2f2118;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1.3rem + 1.4vw, 2.8rem);
+  line-height: 0.96;
+}
+
+.game-details-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   padding: var(--space-4);
   border-radius: 18px;
   background: rgba(255, 248, 237, 0.58);
   border: 1px solid rgba(149, 97, 57, 0.28);
 }
 
-.game-details-team {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+.game-details-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
   gap: var(--space-3);
-  align-items: center;
 }
 
-.game-details-center {
-  text-align: center;
+.game-details-section-head h3 {
+  margin: 0;
+  color: #352316;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.game-details-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
+.game-details-section-head p {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.92rem;
+}
+
+.game-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   margin: 0;
 }
 
-.game-details-row {
-  margin: 0;
-  padding: var(--space-4);
-  border-radius: 16px;
-  background: rgba(255, 248, 237, 0.58);
-  border: 1px solid rgba(149, 97, 57, 0.28);
+.game-info-row {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: 0.8rem 0;
+  border-bottom: 1px solid rgba(149, 97, 57, 0.18);
 }
 
-.game-details-row dt {
+.game-info-row:last-child {
+  border-bottom: none;
+}
+
+.game-info-row dt {
   margin: 0;
   color: var(--color-text-soft);
   font-size: 0.82rem;
@@ -1667,10 +1821,16 @@ body {
   text-transform: uppercase;
 }
 
-.game-details-row dd {
-  margin: 0.45rem 0 0;
+.game-info-row dd {
+  margin: 0;
   color: #2f2118;
   line-height: 1.5;
+}
+
+.game-details-notes {
+  margin: 0;
+  color: #2f2118;
+  line-height: 1.65;
 }
 
 .game-details-actions {
@@ -1678,10 +1838,12 @@ body {
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
-.game-details-actions:empty {
-  display: none;
+.game-details-actions-footer {
+  padding-top: var(--space-1);
+  border-top: 1px solid rgba(149, 97, 57, 0.18);
 }
 
 .admin-ops-card {
@@ -1779,8 +1941,7 @@ body {
     align-items: flex-start;
   }
 
-  .game-details-header,
-  .game-details-header-actions {
+  .game-details-section-head {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1909,9 +2070,7 @@ body {
     align-items: flex-start;
   }
 
-  .schedule-mobile-row-body,
-  .game-details-matchup,
-  .game-details-grid {
+  .schedule-mobile-row-body {
     grid-template-columns: 1fr;
   }
 
@@ -1925,28 +2084,62 @@ body {
   }
 
   .game-details-backdrop {
-    align-items: end;
-    padding: 0;
+    align-items: start;
+    padding: 0.75rem 0.75rem 1rem;
     background: rgba(6, 19, 34, 0.52);
+    overflow-y: auto;
   }
 
   .game-details-dialog {
-    width: 100%;
-    max-height: min(88vh, 100%);
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
+    width: min(100%, 42rem);
+    max-height: calc(100vh - 1.5rem);
+    gap: var(--space-3);
+    padding: var(--space-4);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .game-details-hero {
+    padding: var(--space-4);
+    gap: var(--space-3);
   }
 
   .game-details-matchup {
     gap: var(--space-3);
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
 
-  .game-details-team {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+  .game-details-team .team-avatar-lg {
+    width: 3.5rem;
+    height: 3.5rem;
   }
 
-  .game-details-center {
-    order: -1;
+  .game-details-team-name {
+    font-size: 0.95rem;
+  }
+
+  .game-details-scoreline {
+    gap: 0.45rem;
+    font-size: 2.7rem;
+  }
+
+  .game-details-hero-time {
+    font-size: 2rem;
+  }
+
+  .game-details-hero-date,
+  .game-details-hero-caption {
+    font-size: 0.82rem;
+  }
+
+  .game-info-row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+
+  .game-details-section-head p {
+    font-size: 0.88rem;
   }
 
   .game-details-actions .button {
@@ -2440,8 +2633,8 @@ body {
   }
 
   .app-drawer {
-    top: 86px;
-    height: calc(100vh - 86px);
+    top: 0;
+    height: 100vh;
   }
 
   .surface-card,

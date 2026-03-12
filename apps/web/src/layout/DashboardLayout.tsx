@@ -41,6 +41,19 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
   }, [authed, isAdmin]);
 
   useEffect(() => {
+    const shouldLockScroll = open;
+    const previousOverflow = document.body.style.overflow;
+
+    if (shouldLockScroll) {
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         closePanels();
