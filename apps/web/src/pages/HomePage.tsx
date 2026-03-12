@@ -68,6 +68,7 @@ export default function HomePage() {
 
   const teamMap = useMemo(() => buildTeamMap(teams), [teams]);
   const standings = useMemo(() => sortStandings(teams), [teams]);
+  const standingsSnapshot = useMemo(() => standings.slice(0, 6), [standings]);
   const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 5), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 4), [games]);
   const latestPosts = useMemo(() => posts.slice(0, 4), [posts]);
@@ -256,35 +257,65 @@ export default function HomePage() {
                   description="Team records will appear after final scores are entered."
                 />
               ) : (
-                <div className="table-wrap">
-                  <table className="league-table compact-table">
-                    <thead>
-                      <tr>
-                        <th>Rank</th>
-                        <th>Team</th>
-                        <th>Record</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {standings.slice(0, 6).map((team, index) => (
-                        <tr key={team.id}>
-                          <td data-label="Rank">#{index + 1}</td>
-                          <td data-label="Team">
-                            <div className="table-team">
-                              <TeamAvatar
-                                name={team.name}
-                                src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
-                                size="sm"
-                              />
-                              <span>{team.name}</span>
-                            </div>
-                          </td>
-                          <td data-label="Record">{getRecord(team)}</td>
+                <>
+                  <div className="table-wrap standings-table-wrap">
+                    <table className="league-table compact-table">
+                      <thead>
+                        <tr>
+                          <th>Rank</th>
+                          <th>Team</th>
+                          <th>Record</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {standingsSnapshot.map((team, index) => (
+                          <tr key={team.id}>
+                            <td data-label="Rank">#{index + 1}</td>
+                            <td data-label="Team">
+                              <div className="table-team">
+                                <TeamAvatar
+                                  name={team.name}
+                                  src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
+                                  size="sm"
+                                />
+                                <span>{team.name}</span>
+                              </div>
+                            </td>
+                            <td data-label="Record">{getRecord(team)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <ol className="standings-mobile-list" aria-label="Standings snapshot">
+                    {standingsSnapshot.map((team, index) => {
+                      const wins = team.wins ?? 0;
+                      const losses = team.losses ?? 0;
+
+                      return (
+                        <li className="standings-mobile-item" key={team.id}>
+                          <article className="standings-mobile-card">
+                            <div className="standings-mobile-rank">
+                              <span className="standings-rank">#{index + 1}</span>
+                            </div>
+                            <TeamAvatar
+                              name={team.name}
+                              src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
+                              size="sm"
+                            />
+                            <div className="standings-mobile-team">
+                              <div className="standings-mobile-team-name">{team.name}</div>
+                            </div>
+                            <div className="standings-mobile-record">{getRecord(team)}</div>
+                            <div className="standings-mobile-meta">
+                              W {wins} • L {losses}
+                            </div>
+                          </article>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
               )}
             </SurfaceCard>
 
