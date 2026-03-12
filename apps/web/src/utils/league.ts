@@ -1,5 +1,14 @@
 import type { Game, Team } from "../api";
 
+function firstNonEmpty(...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
 export function parseDateOnly(value: string) {
   if (!value) return null;
   const datePart = value.includes("T") ? value.split("T")[0] : value.split(" ")[0];
@@ -60,6 +69,70 @@ export function formatTime(value?: string | null) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+export function isFinalGame(status?: string | null) {
+  return (status ?? "").toUpperCase() === "FINAL";
+}
+
+export function getGameScore(game: Pick<Game, "home_score" | "away_score">) {
+  if (game.home_score == null || game.away_score == null) return null;
+  return {
+    away: game.away_score,
+    home: game.home_score,
+  };
+}
+
+export function formatFullGameDate(game: Pick<Game, "date">) {
+  const date = parseDateOnly(game.date);
+  if (!date) return formatDate(game.date);
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function getGameLocationName(game: Pick<Game, "field" | "location_name" | "park_name" | "venue_name">) {
+  return firstNonEmpty(game.location_name, game.park_name, game.venue_name, game.field);
+}
+
+export function getGameAddress(game: Pick<Game, "address" | "location_address">) {
+  return firstNonEmpty(game.location_address, game.address);
+}
+
+export function getGameFieldNumber(game: Pick<Game, "field_number">) {
+  if (game.field_number == null) return null;
+  const value = String(game.field_number).trim();
+  return value ? value : null;
+}
+
+export function getGameShortLocation(
+  game: Pick<Game, "field" | "location_name" | "park_name" | "venue_name" | "field_number">,
+) {
+  const location = getGameLocationName(game);
+  const fieldNumber = getGameFieldNumber(game);
+
+  if (location && fieldNumber) {
+    const normalizedLocation = location.toLowerCase();
+    const normalizedFieldNumber = fieldNumber.toLowerCase();
+    if (
+      normalizedLocation.includes(`field ${normalizedFieldNumber}`) ||
+      normalizedLocation.includes(`#${normalizedFieldNumber}`)
+    ) {
+      return location;
+    }
+    return `${location} • Field ${fieldNumber}`;
+  }
+
+  if (location) return location;
+  if (fieldNumber) return `Field ${fieldNumber}`;
+  return "Location TBD";
+}
+
+export function getGameNotes(game: Pick<Game, "notes">) {
+  return firstNonEmpty(game.notes);
 }
 
 export function buildTeamMap(teams: Team[]) {

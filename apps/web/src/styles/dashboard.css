@@ -366,7 +366,7 @@ body {
 .app-drawer {
   position: fixed;
   top: 0;
-  left: 0;
+  right: 0;
   width: min(320px, 88vw);
   height: 100vh;
   padding: 6rem var(--space-5) var(--space-5);
@@ -374,10 +374,10 @@ body {
     radial-gradient(circle at top right, rgba(181, 95, 67, 0.18), transparent 30%),
     linear-gradient(180deg, #18283d 0%, #0b121c 100%);
   color: #fff;
-  transform: translateX(-100%);
+  transform: translateX(100%);
   transition: transform 0.24s ease;
   z-index: 36;
-  box-shadow: 0 24px 52px rgba(7, 24, 43, 0.34);
+  box-shadow: -18px 0 52px rgba(7, 24, 43, 0.34);
 }
 
 .app-drawer.open {
@@ -968,6 +968,21 @@ body {
   gap: var(--space-4);
 }
 
+.schedule-list-desktop {
+  display: grid;
+}
+
+.schedule-mobile-list {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.schedule-game-card-shell,
+.schedule-mobile-row-shell {
+  position: relative;
+}
+
 .public-game-card,
 .announcement-card,
 .mini-game-card,
@@ -1139,6 +1154,12 @@ body {
   max-width: 340px;
   margin: 0 auto;
   padding-inline: 0.9rem;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 244, 0.94), rgba(244, 232, 212, 0.9));
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .schedule-game-card .public-game-card-matchup {
@@ -1147,6 +1168,169 @@ body {
 
 .schedule-game-card .public-game-card-versus {
   padding-top: 0.35rem;
+}
+
+.schedule-card-overlay,
+.schedule-mobile-row-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+}
+
+.schedule-card-overlay:focus-visible,
+.schedule-mobile-row-overlay:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+.schedule-game-card-shell:hover .schedule-game-card,
+.schedule-game-card-shell:focus-within .schedule-game-card,
+.schedule-mobile-row-shell:hover .schedule-mobile-row,
+.schedule-mobile-row-shell:focus-within .schedule-mobile-row {
+  transform: translateY(-2px);
+  border-color: rgba(170, 115, 75, 0.84);
+  box-shadow: 0 20px 34px rgba(7, 10, 14, 0.3);
+}
+
+.public-game-card-footer {
+  position: relative;
+  z-index: 2;
+}
+
+.schedule-mobile-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(199, 163, 123, 0.68);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 244, 0.94), rgba(244, 232, 212, 0.9));
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.schedule-mobile-row-topline,
+.schedule-mobile-row-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.schedule-mobile-row-meta,
+.schedule-mobile-row-footer-meta {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.9rem;
+}
+
+.schedule-mobile-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.schedule-mobile-row-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.schedule-mobile-row-team-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.schedule-mobile-row-team {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.schedule-mobile-row-team-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.schedule-mobile-row .team-avatar-sm {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+
+.schedule-mobile-row-team-name,
+.game-details-team-name {
+  margin: 0;
+  color: #352316;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.schedule-mobile-row-team-score,
+.game-details-team-score {
+  margin: 0;
+  color: var(--color-primary);
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.schedule-mobile-row-summary {
+  min-width: 5.5rem;
+  padding-left: var(--space-4);
+  border-left: 1px solid rgba(149, 97, 57, 0.36);
+  text-align: right;
+}
+
+.schedule-mobile-row-summary-label,
+.game-details-score-label,
+.game-details-team-label,
+.game-details-kicker {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.schedule-mobile-row-summary-value,
+.game-details-scoreline,
+.game-details-versus {
+  margin: 0.25rem 0 0;
+  color: #2f2118;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.schedule-mobile-row-detail-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(160, 114, 75, 0.72);
+  background: rgba(255, 248, 237, 0.72);
+  color: #352316;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .announcement-content,
@@ -1406,6 +1590,100 @@ body {
   overflow: auto;
 }
 
+.game-details-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.game-details-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.game-details-header-copy h2 {
+  margin: 0.35rem 0 0;
+  color: #352316;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1.3rem + 1.8vw, 3rem);
+  letter-spacing: 0.04em;
+  line-height: 0.94;
+  text-transform: uppercase;
+}
+
+.game-details-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.game-details-matchup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+  border-radius: 18px;
+  background: rgba(255, 248, 237, 0.58);
+  border: 1px solid rgba(149, 97, 57, 0.28);
+}
+
+.game-details-team {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.game-details-center {
+  text-align: center;
+}
+
+.game-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.game-details-row {
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: 16px;
+  background: rgba(255, 248, 237, 0.58);
+  border: 1px solid rgba(149, 97, 57, 0.28);
+}
+
+.game-details-row dt {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.game-details-row dd {
+  margin: 0.45rem 0 0;
+  color: #2f2118;
+  line-height: 1.5;
+}
+
+.game-details-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.game-details-actions:empty {
+  display: none;
+}
+
 .admin-ops-card {
   border-style: dashed;
 }
@@ -1451,6 +1729,16 @@ body {
     gap: var(--space-4);
   }
 
+  .app-brand-row,
+  .app-brand {
+    min-width: 0;
+  }
+
+  .app-header-actions {
+    flex: 0 0 auto;
+    margin-left: 0;
+  }
+
   .page-header,
   .section-header,
   .team-summary-card {
@@ -1490,6 +1778,12 @@ body {
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .game-details-header,
+  .game-details-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1504,7 +1798,7 @@ body {
   }
 
   .app-brand-title {
-    font-size: 1.45rem;
+    font-size: 1.58rem;
   }
 
   .app-brand-logo {
@@ -1598,6 +1892,64 @@ body {
 
   .button,
   .file-button-inline {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .schedule-list-desktop {
+    display: none;
+  }
+
+  .schedule-mobile-list {
+    display: flex;
+  }
+
+  .schedule-mobile-row-topline,
+  .schedule-mobile-row-footer {
+    align-items: flex-start;
+  }
+
+  .schedule-mobile-row-body,
+  .game-details-matchup,
+  .game-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-mobile-row-summary {
+    min-width: 0;
+    padding-left: 0;
+    padding-top: var(--space-3);
+    border-left: none;
+    border-top: 1px solid rgba(149, 97, 57, 0.36);
+    text-align: left;
+  }
+
+  .game-details-backdrop {
+    align-items: end;
+    padding: 0;
+    background: rgba(6, 19, 34, 0.52);
+  }
+
+  .game-details-dialog {
+    width: 100%;
+    max-height: min(88vh, 100%);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  .game-details-matchup {
+    gap: var(--space-3);
+  }
+
+  .game-details-team {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .game-details-center {
+    order: -1;
+  }
+
+  .game-details-actions .button {
     width: 100%;
     justify-content: center;
   }
@@ -1787,7 +2139,8 @@ body {
 }
 
 .app-drawer {
-  border-right: 1px solid rgba(191, 132, 83, 0.4);
+  border-left: 1px solid rgba(191, 132, 83, 0.4);
+  box-shadow: -10px 0 26px rgba(4, 7, 11, 0.5);
 }
 
 .admin-panel {
@@ -1991,6 +2344,18 @@ body {
   color: #241a13;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .notice-info {
   background: linear-gradient(160deg, #f4e5ca 0%, #e8d3b0 100%);
   border-color: rgba(145, 93, 53, 0.44);
@@ -2071,7 +2436,7 @@ body {
   }
 
   .app-brand-title {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
   }
 
   .app-drawer {

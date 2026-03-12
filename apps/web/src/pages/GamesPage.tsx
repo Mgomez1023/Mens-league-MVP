@@ -17,6 +17,7 @@ import {
   updateGame,
 } from "../api";
 import type { Game, ImportGamesResult, Team } from "../api";
+import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import { PublicGameCard } from "../components/PublicGameCard";
 import {
   EmptyState,
@@ -24,11 +25,20 @@ import {
   Notice,
   PageHeader,
   SectionHeader,
+  StatusChip,
   SurfaceCard,
+  TeamAvatar,
 } from "../components/ui";
 import {
   buildTeamMap,
+  formatTime,
+  getGameAddress,
+  getGameFieldNumber,
+  getGameScore,
+  getGameShortLocation,
+  getGameStatusMeta,
   groupGamesByDate,
+  isFinalGame,
   parseDateOnly,
 } from "../utils/league";
 
@@ -83,6 +93,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
   const [browseScheduleOpen, setBrowseScheduleOpen] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [editData, setEditData] = useState(emptyForm);
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const browseScheduleRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -209,9 +220,31 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
   }, [filters, games]);
 
   const groupedGames = useMemo(() => groupGamesByDate(filteredGames), [filteredGames]);
+  const selectedGame = useMemo(
+    () => games.find((game) => game.id === selectedGameId) ?? null,
+    [games, selectedGameId],
+  );
+
+  useEffect(() => {
+    if (selectedGameId != null && !selectedGame) {
+      setSelectedGameId(null);
+    }
+  }, [selectedGame, selectedGameId]);
 
   const handleFilterChange = (field: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const getGameDisplayData = (game: Game) => {
+    const away = teamMap[game.away_team_id];
+    const home = teamMap[game.home_team_id];
+
+    return {
+      awayTeamName: away?.name ?? `Team ${game.away_team_id}`,
+      awayTeamLogoSrc: away?.logo_url ? resolveApiUrl(away.logo_url) : null,
+      homeTeamName: home?.name ?? `Team ${game.home_team_id}`,
+      homeTeamLogoSrc: home?.logo_url ? resolveApiUrl(home.logo_url) : null,
+    };
   };
 
   const handleBrowseScheduleToggle = () => {
@@ -422,6 +455,28 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
     }
   };
 
+  const handleOpenGameDetails = (gameId: number) => {
+    setSelectedGameId(gameId);
+  };
+
+  const handleCloseGameDetails = () => {
+    setSelectedGameId(null);
+  };
+
+  const handleEditFromDetails = () => {
+    if (!selectedGame) return;
+    handleCloseGameDetails();
+    handleEditStart(selectedGame);
+  };
+
+  const handleDeleteFromDetails = async () => {
+    if (!selectedGame) return;
+    handleCloseGameDetails();
+    await handleDeleteGame(selectedGame.id);
+  };
+
+  const selectedGameDisplayData = selectedGame ? getGameDisplayData(selectedGame) : null;
+
   return (
     <section className="page-stack">
       <PageHeader
@@ -566,41 +621,153 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
               {groupedGames.map((group) => (
                 <SurfaceCard key={group.key}>
                   <SectionHeader title={group.label} description={`${group.games.length} game${group.games.length === 1 ? "" : "s"}`} />
-                  <div className="schedule-list">
+                  <div className="schedule-list schedule-list-desktop">
                     {group.games.map((game) => {
-                      const away = teamMap[game.away_team_id];
-                      const home = teamMap[game.home_team_id];
+                      const {
+                        awayTeamName,
+                        awayTeamLogoSrc,
+                        homeTeamName,
+                        homeTeamLogoSrc,
+                      } = getGameDisplayData(game);
 
                       return (
-                        <PublicGameCard
-                          key={game.id}
-                          className="schedule-game-card"
-                          game={game}
-                          awayTeamName={away?.name ?? `Team ${game.away_team_id}`}
-                          awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
-                          homeTeamName={home?.name ?? `Team ${game.home_team_id}`}
-                          homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
-                          avatarSize="xl"
-                          footer={
-                            isAdmin ? (
-                              <div className="table-actions">
-                                <button
-                                  className="button button-secondary button-small"
-                                  onClick={() => handleEditStart(game)}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  className="button button-danger button-small"
-                                  onClick={() => handleDeleteGame(game.id)}
-                                  disabled={deletingId === game.id}
-                                >
-                                  {deletingId === game.id ? "Deleting..." : "Delete"}
-                                </button>
+                        <div key={game.id} className="schedule-game-card-shell">
+                          <PublicGameCard
+                            className="schedule-game-card"
+                            game={game}
+                            awayTeamName={awayTeamName}
+                            awayTeamLogoSrc={awayTeamLogoSrc}
+                            homeTeamName={homeTeamName}
+                            homeTeamLogoSrc={homeTeamLogoSrc}
+                            avatarSize="xl"
+                            footer={
+                              isAdmin ? (
+                                <div className="table-actions">
+                                  <button
+                                    className="button button-secondary button-small"
+                                    type="button"
+                                    onClick={() => handleEditStart(game)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="button button-danger button-small"
+                                    type="button"
+                                    onClick={() => handleDeleteGame(game.id)}
+                                    disabled={deletingId === game.id}
+                                  >
+                                    {deletingId === game.id ? "Deleting..." : "Delete"}
+                                  </button>
+                                </div>
+                              ) : null
+                            }
+                          />
+                          <button
+                            className="schedule-card-overlay"
+                            type="button"
+                            aria-label={`View details for ${awayTeamName} versus ${homeTeamName}`}
+                            onClick={() => handleOpenGameDetails(game.id)}
+                          >
+                            <span className="visually-hidden">View details</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="schedule-mobile-list">
+                    {group.games.map((game) => {
+                      const {
+                        awayTeamName,
+                        awayTeamLogoSrc,
+                        homeTeamName,
+                        homeTeamLogoSrc,
+                      } = getGameDisplayData(game);
+                      const status = getGameStatusMeta(game.status);
+                      const isFinal = isFinalGame(game.status);
+                      const score = getGameScore(game);
+                      const location = getGameShortLocation(game);
+                      const hasDirections = !!getGameAddress(game);
+                      const fieldNumber = getGameFieldNumber(game);
+
+                      return (
+                        <div key={game.id} className="schedule-mobile-row-shell">
+                          <article className="schedule-mobile-row">
+                            <div className="schedule-mobile-row-topline">
+                              <p className="schedule-mobile-row-meta">
+                                <span>{formatTime(game.time)}</span>
+                                <span aria-hidden="true">•</span>
+                                <span>{location}</span>
+                              </p>
+                              <StatusChip tone={status.tone}>{status.label}</StatusChip>
+                            </div>
+
+                            <div className="schedule-mobile-row-body">
+                              <div className="schedule-mobile-row-team-list">
+                                <div className="schedule-mobile-row-team">
+                                  <div className="schedule-mobile-row-team-copy">
+                                    <TeamAvatar
+                                      name={awayTeamName}
+                                      src={awayTeamLogoSrc}
+                                      size="sm"
+                                    />
+                                    <span className="schedule-mobile-row-team-name">{awayTeamName}</span>
+                                  </div>
+                                  {isFinal && score ? (
+                                    <span className="schedule-mobile-row-team-score">{score.away}</span>
+                                  ) : null}
+                                </div>
+
+                                <div className="schedule-mobile-row-team">
+                                  <div className="schedule-mobile-row-team-copy">
+                                    <TeamAvatar
+                                      name={homeTeamName}
+                                      src={homeTeamLogoSrc}
+                                      size="sm"
+                                    />
+                                    <span className="schedule-mobile-row-team-name">{homeTeamName}</span>
+                                  </div>
+                                  {isFinal && score ? (
+                                    <span className="schedule-mobile-row-team-score">{score.home}</span>
+                                  ) : null}
+                                </div>
                               </div>
-                            ) : null
-                          }
-                        />
+
+                              <div className="schedule-mobile-row-summary">
+                                {isFinal && score ? (
+                                  <>
+                                    <p className="schedule-mobile-row-summary-label">Final</p>
+                                    <p className="schedule-mobile-row-summary-value">
+                                      {score.away} - {score.home}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p className="schedule-mobile-row-summary-label">Status</p>
+                                    <p className="schedule-mobile-row-summary-value">{status.label}</p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="schedule-mobile-row-footer">
+                              <p className="schedule-mobile-row-footer-meta">
+                                {fieldNumber ? `Field ${fieldNumber}` : hasDirections ? "Directions available" : "Tap for full details"}
+                              </p>
+                              <span className="schedule-mobile-row-detail-button" aria-hidden="true">
+                                Details
+                              </span>
+                            </div>
+                          </article>
+                          <button
+                            className="schedule-mobile-row-overlay"
+                            type="button"
+                            aria-label={`View details for ${awayTeamName} versus ${homeTeamName}`}
+                            onClick={() => handleOpenGameDetails(game.id)}
+                          >
+                            <span className="visually-hidden">View details</span>
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -855,6 +1022,50 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
           </SurfaceCard>
         </div>
       )}
+
+      <GameDetailsDialog
+        game={selectedGame}
+        awayTeam={
+          selectedGame && selectedGameDisplayData
+            ? {
+                name: selectedGameDisplayData.awayTeamName,
+                logoSrc: selectedGameDisplayData.awayTeamLogoSrc,
+              }
+            : null
+        }
+        homeTeam={
+          selectedGame && selectedGameDisplayData
+            ? {
+                name: selectedGameDisplayData.homeTeamName,
+                logoSrc: selectedGameDisplayData.homeTeamLogoSrc,
+              }
+            : null
+        }
+        onClose={handleCloseGameDetails}
+        footer={
+          isAdmin && selectedGame ? (
+            <>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={handleEditFromDetails}
+              >
+                Edit game
+              </button>
+              <button
+                className="button button-danger"
+                type="button"
+                onClick={() => {
+                  void handleDeleteFromDetails();
+                }}
+                disabled={deletingId === selectedGame.id}
+              >
+                {deletingId === selectedGame.id ? "Deleting..." : "Delete game"}
+              </button>
+            </>
+          ) : null
+        }
+      />
     </section>
   );
 }

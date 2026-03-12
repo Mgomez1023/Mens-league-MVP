@@ -56,16 +56,6 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
       <header className="app-header">
         <div className="app-header-inner">
           <div className="app-brand-row">
-            <button
-              className="menu-toggle"
-              onClick={() => {
-                closeAdminMenu();
-                setOpen((prev) => !prev);
-              }}
-              aria-label="Toggle navigation"
-            >
-              Menu
-            </button>
             <NavLink to="/" className="app-brand" onClick={closePanels}>
               <img
                 className="app-brand-logo"
@@ -92,6 +82,17 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
           </nav>
 
           <div className="app-header-actions">
+            <button
+              className="menu-toggle"
+              type="button"
+              onClick={() => {
+                closeAdminMenu();
+                setOpen((prev) => !prev);
+              }}
+              aria-label="Toggle navigation"
+            >
+              Menu
+            </button>
             {isAdmin && (
               <button
                 className="admin-menu-trigger desktop-only"

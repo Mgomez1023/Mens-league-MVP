@@ -17,6 +17,13 @@ export type Game = {
   date: string;
   time?: string | null;
   field?: string | null;
+  location_name?: string | null;
+  park_name?: string | null;
+  venue_name?: string | null;
+  address?: string | null;
+  location_address?: string | null;
+  field_number?: string | number | null;
+  notes?: string | null;
   home_team_id: number;
   away_team_id: number;
   home_score?: number | null;
