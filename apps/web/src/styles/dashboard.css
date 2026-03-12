@@ -452,6 +452,19 @@ body {
   gap: var(--space-5);
 }
 
+.page-header-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.page-header-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-3);
+}
+
 .page-header h1,
 .section-header h2,
 .surface-card h3,
@@ -488,6 +501,45 @@ body {
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.schedule-browser-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(209, 135, 84, 0.55);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(202, 124, 74, 0.18), rgba(95, 56, 33, 0.22));
+  color: #f4ddbe;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.schedule-browser-icon-button:hover,
+.schedule-browser-icon-button:focus-visible,
+.schedule-browser-icon-button[aria-pressed="true"] {
+  background: linear-gradient(135deg, rgba(182, 51, 44, 0.4), rgba(180, 103, 63, 0.42));
+  border-color: rgba(209, 135, 84, 0.7);
+}
+
+.schedule-browser-icon-button:hover {
+  transform: translateY(-1px);
+}
+
+.schedule-browser-icon-button:focus-visible {
+  outline: 2px solid rgba(244, 221, 190, 0.82);
+  outline-offset: 2px;
+}
+
+.schedule-browser-icon-button svg {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .surface-card {

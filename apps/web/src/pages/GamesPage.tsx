@@ -483,15 +483,31 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         eyebrow=""
         title="Games and schedule"
         description=""
+        titleAction={
+          <button
+            className="schedule-browser-icon-button"
+            type="button"
+            onClick={handleBrowseScheduleToggle}
+            aria-label={browseScheduleOpen ? "Hide schedule browser" : "Browse schedule"}
+            aria-pressed={browseScheduleOpen}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M7 3v2M17 3v2M4 8h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2 6h3v3H8zm5 0h3v3h-3zM8 15h3"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="visually-hidden">
+              {browseScheduleOpen ? "Hide schedule browser" : "Browse schedule"}
+            </span>
+          </button>
+        }
         actions={
           <div className="inline-actions">
-            <button
-              className="button button-secondary"
-              type="button"
-              onClick={handleBrowseScheduleToggle}
-            >
-              {browseScheduleOpen ? "Hide schedule browser" : "Browse schedule"}
-            </button>
             {isAdmin ? (
               <>
                 <button

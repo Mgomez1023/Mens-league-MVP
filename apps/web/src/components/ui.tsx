@@ -8,6 +8,7 @@ type PageHeaderProps = {
   eyebrow?: string;
   title: string;
   description?: string;
+  titleAction?: ReactNode;
   actions?: ReactNode;
   aside?: ReactNode;
 };
@@ -16,6 +17,7 @@ export function PageHeader({
   eyebrow,
   title,
   description,
+  titleAction,
   actions,
   aside,
 }: PageHeaderProps) {
@@ -23,7 +25,10 @@ export function PageHeader({
     <header className="page-header">
       <div className="page-header-copy">
         {eyebrow && <p className="page-eyebrow">{eyebrow}</p>}
-        <h1>{title}</h1>
+        <div className="page-header-title-row">
+          <h1>{title}</h1>
+          {titleAction}
+        </div>
         {description && <p className="page-description">{description}</p>}
       </div>
       {(actions || aside) && (
