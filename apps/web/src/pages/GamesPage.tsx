@@ -32,8 +32,6 @@ import {
 import {
   buildTeamMap,
   formatTime,
-  getGameAddress,
-  getGameFieldNumber,
   getGameScore,
   getGameShortLocation,
   getGameStatusMeta,
