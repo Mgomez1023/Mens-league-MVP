@@ -750,26 +750,10 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                               </div>
 
                               <div className="schedule-mobile-row-summary">
-                                {isFinal && score ? (
-                                  <>
-                                    <p className="schedule-mobile-row-summary-label">Final</p>
-                                    <p className="schedule-mobile-row-summary-value">
-                                      {score.away} - {score.home}
-                                    </p>
-                                  </>
-                                ) : (
-                                  <>
-                                    <p className="schedule-mobile-row-summary-label">Status</p>
-                                    <p className="schedule-mobile-row-summary-value">{status.label}</p>
-                                  </>
-                                )}
                               </div>
                             </div>
 
                             <div className="schedule-mobile-row-footer">
-                              <p className="schedule-mobile-row-footer-meta">
-                                {fieldNumber ? `Field ${fieldNumber}` : hasDirections ? "Directions available" : "Tap for full details"}
-                              </p>
                               <span className="schedule-mobile-row-detail-button" aria-hidden="true">
                                 Details
                               </span>
