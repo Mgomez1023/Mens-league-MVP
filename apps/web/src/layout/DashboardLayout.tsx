@@ -76,7 +76,7 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
                 alt="Benito Juarez Men's Baseball League logo"
               />
               <div className="app-brand-copy">
-                <span className="app-brand-title">Benito Juarez Men&apos;s League</span>
+                <span className="app-brand-title">Benito Juarez Men&apos;s Baseball League</span>
               </div>
             </NavLink>
           </div>

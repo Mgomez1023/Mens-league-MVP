@@ -68,7 +68,7 @@ export default function HomePage() {
 
   const teamMap = useMemo(() => buildTeamMap(teams), [teams]);
   const standings = useMemo(() => sortStandings(teams), [teams]);
-  const standingsSnapshot = useMemo(() => standings.slice(0, 6), [standings]);
+  const standingsSnapshot = useMemo(() => standings.slice(0, 5), [standings]);
   const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 5), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 4), [games]);
   const latestPosts = useMemo(() => posts.slice(0, 4), [posts]);
@@ -78,7 +78,7 @@ export default function HomePage() {
 
       <PageHeader
         eyebrow=""
-        title="Benito Juarez Men's League"
+        title="Benito Juarez Men's Baseball League"
         description=""
       />
 
