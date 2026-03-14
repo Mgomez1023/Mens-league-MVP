@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchGamesPublic, fetchTeamsPublic, getPosts, resolveApiUrl } from "../api";
 import type { Game, Post, Team } from "../api";
+import homeHeroImage from "../assets/Background.png";
 import { PublicGameCard } from "../components/PublicGameCard";
 import {
   EmptyState,
   LoadingState,
   Notice,
-  PageHeader,
   SectionHeader,
   StatusChip,
   SurfaceCard,
@@ -69,51 +69,43 @@ export default function HomePage() {
   const teamMap = useMemo(() => buildTeamMap(teams), [teams]);
   const standings = useMemo(() => sortStandings(teams), [teams]);
   const standingsSnapshot = useMemo(() => standings.slice(0, 5), [standings]);
-  const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 5), [games]);
+  const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0,3), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 4), [games]);
   const latestPosts = useMemo(() => posts.slice(0, 4), [posts]);
 
   return (
     <section className="page-stack">
-
-      <PageHeader
-        eyebrow=""
-        title="Benito Juarez Men's Baseball League"
-        description=""
-      />
-
-      {/* 
-
-      <PageHeader
-        eyebrow="League operations dashboard"
-        title="Benito Juarez Men's League"
-        description="Official schedule, standings, team rosters, and league announcements for players, families, and commissioners."
-      />
-      
-      */}
-
-      
-      {/* 
-      
-        <SurfaceCard tone="accent" className="hero-card">
-          <div className="hero-card-copy">
-            <p className="hero-kicker">{seasonLabel}</p>
-            <h2>Everything the league needs on one board.</h2>
-            <p>
-              Check the next game day, recent finals, current standings, and the latest
-              commissioner updates without digging through separate pages.
-            </p>
+      <section className="home-hero-banner" aria-label="League hero image">
+        <img
+          className="home-hero-banner-image"
+          src={homeHeroImage}
+          alt="Baseball players under stadium lights"
+        />
+        <div className="home-hero-banner-overlay" />
+        <div className="home-hero-banner-copy">
+          <p className="home-hero-kicker">WELCOME TO</p>
+          <div className="home-hero-title-group">
+            <h1 className="home-hero-title" aria-label="Benito Juarez Men's Baseball League">
+              <span className="home-hero-word home-hero-word-benito">
+                <span className="home-hero-word-white">BEN</span>
+                <span className="home-hero-word-outline">IT</span>
+                <span className="home-hero-word-blue">O</span>
+              </span>
+              <span className="home-hero-word home-hero-word-juarez">
+                <span className="home-hero-word-red">JUA</span>
+                <span className="home-hero-word-outline-light">REZ</span>
+              </span>
+            </h1>
           </div>
-          <div className="hero-stats">
-            <StatPill label="Teams" value={teams.length} />
-            <StatPill label="Upcoming games" value={upcomingGames.length} />
-            <StatPill label="Final scores" value={recentResults.length} />
-            <StatPill label="Announcements" value={posts.length} />
+          <div className="home-hero-meta">
+            <span className="home-hero-meta-item home-hero-meta-item-primary">
+              MEN&apos;S BASEBALL LEAGUE
+            </span>
+            <span className="home-hero-meta-item">CHICAGO.IL</span>
+            <span className="home-hero-meta-badge">EST.1975</span>
           </div>
-        </SurfaceCard>
-      
-      
-      */}
+        </div>
+      </section>
 
       {loading && <LoadingState label="Loading league dashboard..." />}
       {!loading && error && <Notice variant="error">{error}</Notice>}

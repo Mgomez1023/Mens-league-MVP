@@ -505,7 +505,25 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
           </button>
         }
         actions={
-          <div className="inline-actions">
+          <></>
+        }
+      />
+
+      {isAdmin && (
+        <SurfaceCard className="admin-ops-card">
+          <SectionHeader
+            title="Schedule operations"
+            description=""
+          />
+          <div className="admin-ops-actions">
+            <button
+              className="button button-danger"
+              type="button"
+              onClick={handleClearGames}
+              disabled={deletingId === -1}
+            >
+              {deletingId === -1 ? "Clearing..." : "Clear all games"}
+            </button>
             {isAdmin ? (
               <>
                 <button
@@ -530,25 +548,9 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </label>
               </>
             ) : null}
-          </div>
-        }
-      />
 
-      {isAdmin && (
-        <SurfaceCard className="admin-ops-card">
-          <SectionHeader
-            title="Schedule operations"
-            description="Manual entry, CSV import, and destructive actions are grouped here to keep the public schedule clean."
-          />
-          <div className="admin-ops-actions">
-            <button
-              className="button button-danger"
-              type="button"
-              onClick={handleClearGames}
-              disabled={deletingId === -1}
-            >
-              {deletingId === -1 ? "Clearing..." : "Clear all games"}
-            </button>
+
+
           </div>
           {importError && <Notice variant="error">{importError}</Notice>}
           {importResult && (
