@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { FaFacebookF, FaYoutube } from "react-icons/fa6";
 import { NavLink, Outlet } from "react-router-dom";
 import leagueLogo from "../assets/league-logo.png";
+import { leagueProfile } from "../utils/site";
 import "../styles/dashboard.css";
 
 type DashboardLayoutProps = {
@@ -22,6 +24,14 @@ const adminLinks = [
   { to: "/teams", label: "Manage Teams" },
   { to: "/posts", label: "Manage Posts" },
 ];
+
+function SocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]["icon"] }) {
+  if (icon === "facebook") {
+    return <FaFacebookF aria-hidden="true" />;
+  }
+
+  return <FaYoutube aria-hidden="true" />;
+}
 
 export default function DashboardLayout({ authed, isAdmin, onLogout }: DashboardLayoutProps) {
   const [open, setOpen] = useState(false);
@@ -95,6 +105,21 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
           </nav>
 
           <div className="app-header-actions">
+            <div className="header-socials" aria-label="League social media">
+              {leagueProfile.socials.map((social) => (
+                <a
+                  key={social.label}
+                  className="social-button social-button-header"
+                  href={social.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={social.label}
+                  title={social.label}
+                >
+                  <SocialIcon icon={social.icon} />
+                </a>
+              ))}
+            </div>
             <button
               className="menu-toggle"
               type="button"
@@ -120,14 +145,6 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
 
           </div>
         </div>
-
-        {!authed && (
-          <div className="app-header-utility desktop-only">
-            <NavLink to="/login" className="app-header-login" onClick={closePanels}>
-              Login
-            </NavLink>
-          </div>
-        )}
       </header>
 
       <div className={`admin-panel-backdrop ${adminMenuOpen ? "open" : ""}`} onClick={closeAdminMenu} />
@@ -207,11 +224,24 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
         )}
 
         <div className="drawer-section">
-          {!authed ? (
-            <NavLink to="/login" className="button button-primary drawer-button" onClick={closeDrawer}>
-              Admin Login
-            </NavLink>
-          ) : (
+          <div className="drawer-socials" aria-label="Mobile social media">
+            {leagueProfile.socials.map((social) => (
+              <a
+                key={social.label}
+                className="social-button social-button-drawer"
+                href={social.href}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <SocialIcon icon={social.icon} />
+                {social.label}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {authed && (
+          <div className="drawer-section">
             <button
               className="button button-secondary drawer-button"
               onClick={() => {
@@ -221,8 +251,8 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
             >
               Log Out
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </aside>
 
       <main className="app-main">
@@ -233,8 +263,56 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
 
       <footer className="app-footer">
         <div className="app-footer-inner">
-          <span>Benito Juarez Men&apos;s League</span>
-          <span>Schedule, standings, rosters, and league announcements in one place.</span>
+          <div className="footer-block footer-about">
+            <p className="footer-label">About</p>
+            <p className="footer-heading">{leagueProfile.shortName}</p>
+            <p className="footer-copy">{leagueProfile.about}</p>
+          </div>
+
+          <div className="footer-block footer-contact">
+            <p className="footer-label">Contact</p>
+            <a className="footer-link" href={`mailto:${leagueProfile.email}`}>
+              {leagueProfile.email}
+            </a>
+            <p className="footer-copy">Schedule, standings, rosters, and league announcements in one place.</p>
+          </div>
+
+          <div className="footer-block footer-social">
+            <p className="footer-label">Follow</p>
+            <div className="footer-socials">
+              {leagueProfile.socials.map((social) => (
+                <a
+                  key={social.label}
+                  className="social-button social-button-footer"
+                  href={social.href}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <SocialIcon icon={social.icon} />
+                  {social.label}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div className="footer-block footer-admin">
+            <p className="footer-label">Admin</p>
+            {authed ? (
+              <>
+                <button className="footer-admin-link" type="button" onClick={onLogout}>
+                  Log Out
+                </button>
+                <p className="footer-copy">Commissioner access is intentionally kept low-profile.</p>
+              </>
+            ) : (
+              <>
+                <NavLink to="/login" className="footer-admin-link" onClick={closePanels}>
+                  Admin Login
+                </NavLink>
+                <p className="footer-copy">Commissioner tools and posting access.</p>
+              </>
+            )}
+          </div>
         </div>
       </footer>
     </div>

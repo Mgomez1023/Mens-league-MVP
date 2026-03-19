@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { FaFacebookF, FaYoutube } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { fetchGamesPublic, fetchTeamsPublic, getPosts, resolveApiUrl } from "../api";
 import type { Game, Post, Team } from "../api";
@@ -13,6 +14,7 @@ import {
   SurfaceCard,
   TeamAvatar,
 } from "../components/ui";
+import { leagueProfile } from "../utils/site";
 import {
   buildTeamMap,
   formatDateTime,
@@ -22,6 +24,14 @@ import {
   sortStandings,
   truncate,
 } from "../utils/league";
+
+function HomeSocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]["icon"] }) {
+  if (icon === "facebook") {
+    return <FaFacebookF aria-hidden="true" />;
+  }
+
+  return <FaYoutube aria-hidden="true" />;
+}
 
 export default function HomePage() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -104,6 +114,33 @@ export default function HomePage() {
             <span className="home-hero-meta-item">CHICAGO.IL</span>
             <span className="home-hero-meta-badge">EST.1975</span>
           </div>
+          <SurfaceCard className="home-about-card" padded={false}>
+            <div className="home-about-card-inner">
+              <div className="home-about-card-copy">
+                <p className="home-about-kicker">About</p>
+                <p>
+                  Benito Juarez Men&apos;s League is a community baseball league built around
+                  competitive weekend games, local teams, and a long-running Chicago baseball
+                  tradition.
+                </p>
+              </div>
+
+              <div className="home-about-socials" aria-label="League social media">
+                {leagueProfile.socials.map((social) => (
+                  <a
+                    key={social.label}
+                    className="social-button social-button-footer"
+                    href={social.href}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <HomeSocialIcon icon={social.icon} />
+                    {social.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          </SurfaceCard>
         </div>
       </section>
 

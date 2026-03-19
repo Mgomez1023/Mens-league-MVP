@@ -2769,7 +2769,7 @@ body {
 .home-hero-banner {
   position: relative;
   width: 100vw;
-  min-height: calc(100vh - 8.5rem);
+  min-height: calc(100vh - 6rem);
   margin-top: calc(var(--space-8) * -1);
   margin-right: calc(50% - 50vw);
   margin-left: calc(50% - 50vw);
@@ -3103,4 +3103,240 @@ body {
     border-radius: 14px;
   }
   
+}
+
+.header-socials,
+.footer-socials,
+.drawer-socials {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.social-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  border: 1px solid rgba(99, 173, 221, 0.42);
+  border-radius: 999px;
+  background: rgba(12, 18, 25, 0.54);
+  color: #f7fbff;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.social-button:hover,
+.social-button:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(99, 173, 221, 0.7);
+  background: linear-gradient(135deg, rgba(201, 46, 46, 0.42), rgba(91, 181, 230, 0.36));
+}
+
+.social-button-header {
+  width: 2.5rem;
+  padding: 0;
+  font-size: 0.88rem;
+}
+
+.social-button svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+.social-button-footer,
+.social-button-drawer,
+.footer-admin-link {
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+}
+
+.social-button-footer,
+.social-button-drawer {
+  gap: 0.55rem;
+}
+
+.drawer-socials {
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.social-button-drawer {
+  width: 100%;
+}
+
+.app-footer {
+  padding: 2rem 0 2.35rem;
+  background:
+    linear-gradient(180deg, rgba(6, 10, 14, 0.92), rgba(8, 14, 20, 0.98)),
+    #06090d;
+}
+
+.app-footer-inner {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.footer-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.footer-label,
+.footer-heading,
+.footer-copy {
+  margin: 0;
+}
+
+.footer-label {
+  color: #5bb5e6;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.footer-heading {
+  color: #f7fbff;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.footer-copy {
+  color: #b9d7ea;
+  line-height: 1.6;
+}
+
+.footer-link {
+  color: #f7fbff;
+  font-weight: 700;
+}
+
+.footer-link:hover,
+.footer-admin-link:hover {
+  color: #ffffff;
+}
+
+.footer-admin-link {
+  width: fit-content;
+  border: 1px solid rgba(99, 173, 221, 0.42);
+  border-radius: 999px;
+  background: rgba(12, 18, 25, 0.54);
+  color: #f7fbff;
+  cursor: pointer;
+}
+
+.footer-admin-link:hover,
+.footer-admin-link:focus-visible {
+  border-color: rgba(99, 173, 221, 0.7);
+  background: linear-gradient(135deg, rgba(201, 46, 46, 0.42), rgba(91, 181, 230, 0.36));
+}
+
+@media (max-width: 860px) {
+  .header-socials {
+    display: none;
+  }
+
+  .app-header-actions {
+    gap: 0.5rem;
+  }
+
+  .app-footer-inner {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .app-footer-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .header-socials {
+    display: none;
+  }
+}
+
+.home-about-card {
+  width: min(100rem, 100%);
+  margin-top: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(5, 7, 11, 0.94), rgba(8, 11, 16, 0.98)),
+    #000000;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.42);
+  color: #ffffff;
+}
+
+.home-about-card-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 1.15rem 1.1rem;
+}
+
+.home-about-card-copy p,
+.home-about-kicker {
+  margin: 0;
+}
+
+.home-about-kicker {
+  margin-bottom: 0.35rem;
+  color: #5bb5e6;
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-about-card-copy p:last-child {
+  margin-top: 0.45rem;
+  max-width: 68ch;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1.16rem;
+  line-height: 1.55;
+}
+
+.home-about-socials {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.home-about-card .social-button {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(91, 181, 230, 0.35);
+  color: #ffffff;
+}
+
+.home-about-card .social-button:hover,
+.home-about-card .social-button:focus-visible {
+  border-color: rgba(91, 181, 230, 0.7);
+  background: linear-gradient(135deg, rgba(201, 46, 46, 0.48), rgba(91, 181, 230, 0.34));
+}
+
+@media (max-width: 860px) {
+  .home-about-card {
+    width: min(100%, 44rem);
+    margin-top: 0.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-about-card-inner {
+    padding: 0.9rem 1rem 1rem;
+  }
 }
