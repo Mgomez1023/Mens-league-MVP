@@ -1,9 +1,11 @@
 import { Fragment, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ApiError,
   AuthError,
   PermissionError,
   createPost,
+  deletePost,
   getPosts,
   resolveApiUrl,
 } from "../api";
@@ -14,7 +16,6 @@ import {
   Notice,
   PageHeader,
   SectionHeader,
-  StatusChip,
   SurfaceCard,
 } from "../components/ui";
 import { formatDateTime } from "../utils/league";
@@ -109,6 +110,7 @@ function renderContentWithLinks(content: string) {
 }
 
 export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
+  const { t } = useTranslation();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +119,7 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
   const remainingChars = 5000 - content.length;
@@ -127,7 +130,7 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
       const data = await getPosts();
       setPosts(data);
     } catch {
-      setError("Unable to load announcements right now.");
+      setError(t("posts.loadError"));
     } finally {
       setLoading(false);
     }
@@ -135,7 +138,7 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
 
   useEffect(() => {
     void loadPosts();
-  }, []);
+  }, [t]);
 
   const handlePublish = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -144,7 +147,7 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
 
     const trimmed = content.trim();
     if (!trimmed) {
-      setFormError("Announcement content is required.");
+      setFormError(t("posts.contentRequired"));
       return;
     }
 
@@ -155,7 +158,7 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
       setImageFile(null);
       setFileInputKey((prev) => prev + 1);
       setComposerOpen(false);
-      setSuccess("Announcement published.");
+      setSuccess(t("posts.publishSuccess"));
       await loadPosts();
     } catch (err) {
       if (err instanceof AuthError) {
@@ -163,14 +166,14 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
         return;
       }
       if (err instanceof PermissionError) {
-        setFormError("Admin access required.");
+        setFormError(t("auth.adminAccessRequired"));
         return;
       }
       if (err instanceof ApiError && err.detail) {
         setFormError(err.detail);
         return;
       }
-      setFormError("Unable to publish announcement right now.");
+      setFormError(t("posts.publishError"));
     } finally {
       setPublishing(false);
     }
@@ -182,19 +185,47 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
       return;
     }
     if (!file.type.startsWith("image/")) {
-      setFormError("Please choose a valid image file.");
+      setFormError(t("posts.invalidImage"));
       return;
     }
     setFormError(null);
     setImageFile(file);
   };
 
+  const handleDelete = async (postId: number) => {
+    if (!window.confirm(t("posts.deleteConfirm"))) return;
+    setDeletingId(postId);
+    setError(null);
+    setSuccess(null);
+    try {
+      await deletePost(postId);
+      setPosts((prev) => prev.filter((post) => post.id !== postId));
+      setSuccess(t("posts.deleteSuccess"));
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        return;
+      }
+      if (err instanceof PermissionError) {
+        setError(t("auth.adminAccessRequired"));
+        return;
+      }
+      if (err instanceof ApiError && err.detail) {
+        setError(err.detail);
+        return;
+      }
+      setError(t("posts.deleteError"));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <section className="page-stack">
       <PageHeader
-        eyebrow="League news"
-        title="Announcements"
-        description=""
+        eyebrow={t("posts.eyebrow")}
+        title={t("posts.title")}
+        description={t("posts.description")}
         actions={
           isAdmin ? (
             <button
@@ -202,27 +233,27 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
               type="button"
               onClick={() => setComposerOpen(true)}
             >
-              New announcement
+              {t("buttons.newAnnouncement")}
             </button>
           ) : undefined
         }
       />
 
-      {loading && <LoadingState label="Loading announcements..." />}
+      {loading && <LoadingState label={t("posts.loading")} />}
       {!loading && error && <Notice variant="error">{error}</Notice>}
       {!loading && success && <Notice variant="success">{success}</Notice>}
 
       {!loading && !error && posts.length === 0 && (
         <SurfaceCard>
           <EmptyState
-            title="No announcements yet"
-            description="League updates will appear here once they are published."
+            title={t("posts.emptyTitle")}
+            description={t("posts.emptyDescription")}
           />
         </SurfaceCard>
       )}
 
       {!loading && !error && posts.length > 0 && (
-        <div className="announcement-feed">
+        <div className="announcement-feed news-feed">
           {posts.map((post) => (
             <SurfaceCard className="post-card" key={post.id}>
               <div className="post-card-header">
@@ -235,32 +266,48 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
                     </time>
                   </div>
                 </div>
-                <StatusChip tone="accent">League update</StatusChip>
+                <div className="post-card-tools">
+                  <span className="news-chip">{t("posts.badge")}</span>
+                  {isAdmin && (
+                    <button
+                      className="button button-danger button-small"
+                      type="button"
+                      onClick={() => {
+                        void handleDelete(post.id);
+                      }}
+                      disabled={deletingId === post.id}
+                    >
+                      {deletingId === post.id ? t("common.deleteInProgress") : t("buttons.delete")}
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="post-content">{renderContentWithLinks(post.content)}</div>
+              <div className="post-card-body">
+                <div className="post-content">{renderContentWithLinks(post.content)}</div>
 
-              {post.image_url && (
-                <img
-                  className="post-image"
-                  src={resolveApiUrl(post.image_url)}
-                  alt="League announcement"
-                  loading="lazy"
-                />
-              )}
+                {post.image_url && (
+                  <img
+                    className="post-image"
+                    src={resolveApiUrl(post.image_url)}
+                    alt={t("common.announcementImageAlt")}
+                    loading="lazy"
+                  />
+                )}
 
-              {extractYoutubePreviews(post.content).map((preview) => (
-                <a
-                  className="post-video-link"
-                  href={preview.watchUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  key={preview.id}
-                >
-                  <img src={preview.thumbnailUrl} alt="YouTube video thumbnail" loading="lazy" />
-                  <span>Watch linked video</span>
-                </a>
-              ))}
+                {extractYoutubePreviews(post.content).map((preview) => (
+                  <a
+                    className="post-video-link"
+                    href={preview.watchUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    key={preview.id}
+                  >
+                    <img src={preview.thumbnailUrl} alt={t("common.youtubeThumbnailAlt")} loading="lazy" />
+                    <span>{t("posts.watchVideo")}</span>
+                  </a>
+                ))}
+              </div>
             </SurfaceCard>
           ))}
         </div>
@@ -270,8 +317,8 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <SurfaceCard className="modal-card">
             <SectionHeader
-              title="Publish announcement"
-              description="Post a league-wide update with optional image support."
+              title={t("posts.composerTitle")}
+              description={t("posts.composerDescription")}
               action={
                 <button
                   className="button button-secondary button-small"
@@ -281,26 +328,26 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
                     setFormError(null);
                   }}
                 >
-                  Close
+                  {t("buttons.close")}
                 </button>
               }
             />
             <form className="form-grid form-grid-stacked" onSubmit={handlePublish}>
               <label className="field">
-                <span>Announcement</span>
+                <span>{t("posts.announcementLabel")}</span>
                 <textarea
                   value={content}
                   onChange={(event) => setContent(event.target.value)}
-                  placeholder="Write an update for the league..."
+                  placeholder={t("posts.placeholder")}
                   rows={6}
                   maxLength={5000}
                 />
               </label>
 
               <label className="field">
-                <span>Image</span>
+                <span>{t("common.image")}</span>
                 <label className="file-trigger">
-                  <span>{imageFile ? imageFile.name : "Choose image"}</span>
+                  <span>{imageFile ? imageFile.name : t("common.chooseImage")}</span>
                   <input
                     key={fileInputKey}
                     type="file"
@@ -312,29 +359,25 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
 
               <div className="form-actions composer-actions">
                 <span className={`character-counter ${remainingChars < 200 ? "low" : ""}`}>
-                  {remainingChars} characters remaining
+                  {t("posts.charactersRemaining", { count: remainingChars })}
                 </span>
                 <div className="inline-actions">
                   {imageFile && (
                     <button
                       className="button button-secondary button-small"
                       type="button"
-                      onClick={() => {
-                        setImageFile(null);
-                        setFileInputKey((prev) => prev + 1);
-                      }}
+                      onClick={() => setImageFile(null)}
                     >
-                      Remove image
+                      {t("posts.removeImage")}
                     </button>
                   )}
                   <button className="button button-primary" type="submit" disabled={publishing}>
-                    {publishing ? "Publishing..." : "Publish"}
+                    {publishing ? t("common.saveInProgress") : t("buttons.publishAnnouncement")}
                   </button>
                 </div>
               </div>
             </form>
             {formError && <Notice variant="error">{formError}</Notice>}
-            <StatusChip tone="accent">Admins only</StatusChip>
           </SurfaceCard>
         </div>
       )}

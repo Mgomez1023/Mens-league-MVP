@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { Game } from "../api";
+import { getCurrentLocale } from "../i18n";
 import { formatDate, formatTime, getGameStatusMeta } from "../utils/league";
 import { StatusChip, TeamAvatar } from "./ui";
 
@@ -10,7 +12,7 @@ function cx(...values: Array<string | false | null | undefined>) {
 function formatHeaderDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return formatDate(value);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(getCurrentLocale(), {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -42,9 +44,14 @@ export function PublicGameCard({
   showMetaDate = false,
   className,
 }: PublicGameCardProps) {
+  const { t } = useTranslation();
   const status = getGameStatusMeta(game.status);
   const isFinal = (game.status ?? "").toUpperCase() === "FINAL";
-  const metaParts = [formatTime(game.time), showMetaDate && formatDate(game.date), game.field || "Field TBD"]
+  const metaParts = [
+    formatTime(game.time),
+    showMetaDate && formatDate(game.date),
+    game.field || t("common.fieldTbd"),
+  ]
     .filter(Boolean)
     .join(" • ");
   const resolvedAvatarSize = avatarSize ?? (variant === "featured" ? "xl" : "lg");
@@ -63,8 +70,8 @@ export function PublicGameCard({
           {isFinal && <p className="public-game-card-team-score">{game.away_score ?? "-"}</p>}
         </div>
 
-        <div className="public-game-card-versus" aria-label={`${awayTeamName} versus ${homeTeamName}`}>
-          VS.
+        <div className="public-game-card-versus" aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}>
+          {t("games.vs")}
         </div>
 
         <div className="public-game-card-team">

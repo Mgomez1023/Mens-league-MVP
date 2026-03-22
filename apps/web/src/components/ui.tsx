@@ -1,4 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 function cx(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -122,10 +123,12 @@ export function EmptyState({
 }
 
 export function LoadingState({ label = "Loading..." }: { label?: string }) {
+  const { t } = useTranslation();
+
   return (
     <div className="loading-state" aria-live="polite">
       <span className="loading-dot" aria-hidden="true" />
-      <span>{label}</span>
+      <span>{label === "Loading..." ? t("common.loading") : label}</span>
     </div>
   );
 }
@@ -160,10 +163,12 @@ type TeamAvatarProps = {
 };
 
 export function TeamAvatar({ name, src, size = "md" }: TeamAvatarProps) {
+  const { t } = useTranslation();
+
   return (
     <div className={cx("team-avatar", `team-avatar-${size}`)}>
       {src ? (
-        <img src={src} alt={`${name} logo`} loading="lazy" />
+        <img src={src} alt={t("common.logoAlt", { name })} loading="lazy" />
       ) : (
         <span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
       )}

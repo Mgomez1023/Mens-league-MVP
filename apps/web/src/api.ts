@@ -346,6 +346,13 @@ export async function createPost(content: string, image?: File | null) {
   return res.json() as Promise<Post>;
 }
 
+export async function deletePost(postId: number) {
+  await authenticatedFetch(`${API_BASE}/posts/${postId}`, {
+    method: "DELETE",
+  });
+  return { ok: true };
+}
+
 export function getCachedTeams(): Team[] | null {
   try {
     const raw = localStorage.getItem(TEAMS_CACHE_KEY);

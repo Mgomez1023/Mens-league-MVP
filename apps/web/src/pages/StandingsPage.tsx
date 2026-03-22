@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { Link, useNavigate } from "react-router-dom";
 import { fetchTeamsPublic, resolveApiUrl } from "../api";
 import type { Team } from "../api";
 import {
@@ -14,6 +15,8 @@ import {
 import { getRecord, sortStandings } from "../utils/league";
 
 export default function StandingsPage() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +33,7 @@ export default function StandingsPage() {
         setTeams(sortStandings(data));
       } catch {
         if (!active) return;
-        setError("Standings are unavailable right now.");
+        setError(t("standings.loadError"));
       } finally {
         if (active) setLoading(false);
       }
@@ -40,55 +43,71 @@ export default function StandingsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
+
+  const openRoster = (teamId: number) => {
+    void navigate(`/teams/${teamId}/roster`);
+  };
 
   return (
     <section className="page-stack">
       <PageHeader
-        eyebrow="League table"
-        title="Standings"
+        eyebrow={t("standings.eyebrow")}
+        title={t("standings.title")}
         description=""
         actions={
-          <Link className="button button-secondary" to="/games">
-            View schedule
+          <Link className="button button-secondary standings-schedule-link" to="/games">
+            {t("standings.viewSchedule")}
           </Link>
         }
       />
 
-      {loading && <LoadingState label="Loading standings..." />}
+      {loading && <LoadingState label={t("standings.loading")} />}
       {!loading && error && <Notice variant="error">{error}</Notice>}
 
       {!loading && !error && (
-        <SurfaceCard>
+        <SurfaceCard className="standings-surface">
           <SectionHeader
-            title="League standings"
-            description="Wins and losses update as final scores are posted."
+            title={t("standings.sectionTitle")}
+            description={t("standings.sectionDescription")}
           />
           {teams.length === 0 ? (
             <EmptyState
-              title="No standings yet"
-              description="Add teams and final game scores to generate the league table."
+              title={t("standings.emptyTitle")}
+              description={t("standings.emptyDescription")}
             />
           ) : (
             <>
               <div className="table-wrap standings-table-wrap">
-                <table className="league-table">
+                <table className="league-table standings-table">
                   <thead>
                     <tr>
-                      <th>Rank</th>
-                      <th>Team</th>
-                      <th>Wins</th>
-                      <th>Losses</th>
-                      <th>Record</th>
+                      <th>{t("common.rank")}</th>
+                      <th>{t("common.team")}</th>
+                      <th>{t("common.wins")}</th>
+                      <th>{t("common.losses")}</th>
+                      <th>{t("common.record")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {teams.map((team, index) => (
-                      <tr key={team.id}>
-                        <td data-label="Rank">
+                      <tr
+                        className="standings-row"
+                        key={team.id}
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => openRoster(team.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openRoster(team.id);
+                          }
+                        }}
+                      >
+                        <td className="standings-cell-rank" data-label={t("common.rank")}>
                           <span className="standings-rank">#{index + 1}</span>
                         </td>
-                        <td data-label="Team">
+                        <td className="standings-cell-team" data-label={t("common.team")}>
                           <div className="table-team">
                             <TeamAvatar
                               name={team.name}
@@ -103,38 +122,40 @@ export default function StandingsPage() {
                             </div>
                           </div>
                         </td>
-                        <td data-label="Wins">{team.wins ?? 0}</td>
-                        <td data-label="Losses">{team.losses ?? 0}</td>
-                        <td data-label="Record">{getRecord(team)}</td>
+                        <td className="standings-cell-stat" data-label={t("common.wins")}>{team.wins ?? 0}</td>
+                        <td className="standings-cell-stat" data-label={t("common.losses")}>{team.losses ?? 0}</td>
+                        <td className="standings-cell-record" data-label={t("common.record")}>{getRecord(team)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <ol className="standings-mobile-list" aria-label="League standings">
+              <ol className="standings-mobile-list" aria-label={t("aria.leagueStandings")}>
                 {teams.map((team, index) => {
                   const wins = team.wins ?? 0;
                   const losses = team.losses ?? 0;
 
                   return (
                     <li className="standings-mobile-item" key={team.id}>
-                      <article className="standings-mobile-card">
-                        <div className="standings-mobile-rank">
-                          <span className="standings-rank">#{index + 1}</span>
-                        </div>
-                        <TeamAvatar
-                          name={team.name}
-                          src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
-                          size="sm"
-                        />
-                        <div className="standings-mobile-team">
-                          <div className="standings-mobile-team-name">{team.name}</div>
-                        </div>
-                        <div className="standings-mobile-record">{getRecord(team)}</div>
-                        <div className="standings-mobile-meta">
-                          W {wins} • L {losses}
-                        </div>
-                      </article>
+                      <Link className="standings-mobile-link" to={`/teams/${team.id}/roster`}>
+                        <article className="standings-mobile-card">
+                          <div className="standings-mobile-rank">
+                            <span className="standings-rank">#{index + 1}</span>
+                          </div>
+                          <TeamAvatar
+                            name={team.name}
+                            src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
+                            size="sm"
+                          />
+                          <div className="standings-mobile-team">
+                            <div className="standings-mobile-team-name">{team.name}</div>
+                          </div>
+                          <div className="standings-mobile-record">{getRecord(team)}</div>
+                          <div className="standings-mobile-meta">
+                            {t("standings.summaryLine", { wins, losses })}
+                          </div>
+                        </article>
+                      </Link>
                     </li>
                   );
                 })}

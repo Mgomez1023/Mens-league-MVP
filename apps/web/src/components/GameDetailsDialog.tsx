@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type { Game } from "../api";
 import {
   formatFullGameDate,
@@ -48,6 +49,7 @@ export function GameDetailsDialog({
   onClose,
   footer,
 }: GameDetailsDialogProps) {
+  const { t } = useTranslation();
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -87,10 +89,10 @@ export function GameDetailsDialog({
   const heroCaption = locationName
     ? locationName
     : fieldNumber
-      ? `Field ${fieldNumber}`
+      ? t("games.fieldWithNumber", { number: fieldNumber })
       : isFinal
-        ? "Matchup complete"
-        : "Scheduled matchup";
+        ? t("games.matchupComplete")
+        : t("games.scheduleMatchup");
 
   return (
     <div
@@ -107,9 +109,9 @@ export function GameDetailsDialog({
       <SurfaceCard className="modal-card game-details-dialog">
         <div className="game-details-header">
           <div className="game-details-header-copy">
-            <p className="game-details-kicker">Game details</p>
+            <p className="game-details-kicker">{t("games.gameDetails")}</p>
             <h2 id={titleId}>
-              {awayTeam.name} vs {homeTeam.name}
+              {awayTeam.name} {t("games.vs")} {homeTeam.name}
             </h2>
           </div>
           <button
@@ -117,7 +119,7 @@ export function GameDetailsDialog({
             className="game-details-close"
             type="button"
             onClick={onClose}
-            aria-label="Close game details"
+            aria-label={t("buttons.close")}
           >
             <span aria-hidden="true">x</span>
           </button>
@@ -133,7 +135,7 @@ export function GameDetailsDialog({
             <div className="game-details-team game-details-team-away">
               <TeamAvatar name={awayTeam.name} src={awayTeam.logoSrc} size="lg" />
               <div className="game-details-team-copy">
-                <p className="game-details-team-label">Away</p>
+                <p className="game-details-team-label">{t("games.away")}</p>
                 <p className="game-details-team-name">{awayTeam.name}</p>
               </div>
               {isFinal && score && <p className="game-details-team-score">{score.away}</p>}
@@ -142,7 +144,7 @@ export function GameDetailsDialog({
             <div className="game-details-center">
               {isFinal && score ? (
                 <>
-                  <p className="game-details-score-label">Final</p>
+                  <p className="game-details-score-label">{t("games.status.final")}</p>
                   <p className="game-details-scoreline">
                     <span>{score.away}</span>
                     <span className="game-details-score-divider">-</span>
@@ -161,7 +163,7 @@ export function GameDetailsDialog({
             <div className="game-details-team game-details-team-home">
               <TeamAvatar name={homeTeam.name} src={homeTeam.logoSrc} size="lg" />
               <div className="game-details-team-copy">
-                <p className="game-details-team-label">Home</p>
+                <p className="game-details-team-label">{t("games.home")}</p>
                 <p className="game-details-team-name">{homeTeam.name}</p>
               </div>
               {isFinal && score && <p className="game-details-team-score">{score.home}</p>}
@@ -171,16 +173,16 @@ export function GameDetailsDialog({
 
         <section className="game-details-section">
           <div className="game-details-section-head">
-            <h3>Game Info</h3>
+            <h3>{t("games.gameInfo")}</h3>
           </div>
           <dl className="game-info-list">
             <DetailRow
-              label="Date & Time"
+              label={t("games.dateTime")}
               value={`${formatFullGameDate(game)} • ${formatTime(game.time)}`}
             />
-            {locationName && <DetailRow label="Location" value={locationName} />}
-            {fieldNumber && <DetailRow label="Field" value={`Field ${fieldNumber}`} />}
-            {address && <DetailRow label="Address" value={address} />}
+            {locationName && <DetailRow label={t("games.location")} value={locationName} />}
+            {fieldNumber && <DetailRow label={t("common.field")} value={t("games.fieldWithNumber", { number: fieldNumber })} />}
+            {address && <DetailRow label={t("games.address")} value={address} />}
           </dl>
           {mapsUrl ? (
             <div className="game-details-actions">
@@ -190,7 +192,7 @@ export function GameDetailsDialog({
                 target="_blank"
                 rel="noreferrer"
               >
-                Get Directions
+                {t("buttons.getDirections")}
               </a>
             </div>
           ) : null}
@@ -199,7 +201,7 @@ export function GameDetailsDialog({
         {notes ? (
           <section className="game-details-section game-details-section-notes">
             <div className="game-details-section-head">
-              <h3>Notes</h3>
+              <h3>{t("games.notes")}</h3>
             </div>
             <p className="game-details-notes">{notes}</p>
           </section>

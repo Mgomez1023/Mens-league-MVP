@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   ApiError,
@@ -36,6 +37,7 @@ const emptyForm = {
 };
 
 export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPageProps) {
+  const { t } = useTranslation();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
           const cached = getCachedTeams();
           if (cached && cached.length > 0) {
             setTeams(sortStandings(cached));
-            setNotice("Showing cached teams while the live endpoint is unavailable.");
+            setNotice(t("teams.cachedUnavailable"));
             return;
           }
           setEndpointMissing(true);
@@ -87,13 +89,13 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
           const cached = getCachedTeams();
           if (cached && cached.length > 0) {
             setTeams(sortStandings(cached));
-            setNotice("Showing cached teams. Log in for the latest league data.");
+            setNotice(t("teams.cachedLoginLatest"));
             return;
           }
-          setError("Teams are temporarily unavailable.");
+          setError(t("teams.temporaryUnavailable"));
           return;
         }
-        setError("Unable to load teams right now.");
+        setError(t("teams.loadError"));
       } finally {
         if (active) setLoading(false);
       }
@@ -103,7 +105,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
     return () => {
       active = false;
     };
-  }, [authed, isAdmin, onAuthError]);
+  }, [authed, isAdmin, onAuthError, t]);
 
   const orderedTeams = useMemo(() => sortStandings(teams), [teams]);
 
@@ -117,7 +119,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
     setNotice(null);
 
     if (!formData.name.trim()) {
-      setFormError("Team name is required.");
+      setFormError(t("teams.nameRequired"));
       return;
     }
 
@@ -140,10 +142,10 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
             return;
           }
           if (err instanceof PermissionError) {
-            setFormError("Admin access required.");
+            setFormError(t("auth.adminAccessRequired"));
             return;
           }
-          setFormError("Team saved, but the logo upload failed.");
+          setFormError(t("teams.logoUploadFailed"));
         }
       }
 
@@ -151,21 +153,21 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
       setFormData(emptyForm);
       setFormLogo(null);
       setFormOpen(false);
-      setNotice("Team added successfully.");
+      setNotice(t("teams.teamAdded"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setFormError("Admin access required.");
+        setFormError(t("auth.adminAccessRequired"));
         return;
       }
       if (err instanceof ApiError && err.detail) {
         setFormError(err.detail);
         return;
       }
-      setFormError("Unable to add team right now.");
+      setFormError(t("teams.addError"));
     } finally {
       setSaving(false);
       setUploading(false);
@@ -173,33 +175,31 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
   };
 
   const handleDeleteTeam = async (teamId: number) => {
-    if (!window.confirm("Delete this team?")) return;
+    if (!window.confirm(t("teams.deleteConfirm"))) return;
     setDeletingId(teamId);
     setError(null);
     setNotice(null);
     try {
       await deleteTeam(teamId);
       setTeams((prev) => prev.filter((team) => team.id !== teamId));
-      setNotice("Team removed.");
+      setNotice(t("teams.teamRemoved"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setError("Admin access required.");
+        setError(t("auth.adminAccessRequired"));
         return;
       }
       if (err instanceof ApiError && err.status === 400) {
         const detail = err.detail ?? err.message;
-        const confirmed = window.confirm(
-          `${detail} Delete anyway? This will also remove related games and players.`,
-        );
+        const confirmed = window.confirm(t("teams.deleteForceConfirm", { detail }));
         if (!confirmed) return;
         try {
           await deleteTeam(teamId, { force: true });
           setTeams((prev) => prev.filter((team) => team.id !== teamId));
-          setNotice("Team and related data removed.");
+          setNotice(t("teams.teamRemovedWithRelated"));
           return;
         } catch (inner) {
           if (inner instanceof AuthError) {
@@ -207,14 +207,14 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
             return;
           }
           if (inner instanceof PermissionError) {
-            setError("Admin access required.");
+            setError(t("auth.adminAccessRequired"));
             return;
           }
-          setError("Unable to delete team right now.");
+          setError(t("teams.deleteError"));
           return;
         }
       }
-      setError("Unable to delete team right now.");
+      setError(t("teams.deleteError"));
     } finally {
       setDeletingId(null);
     }
@@ -226,7 +226,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
       return;
     }
     if (!file.type.startsWith("image/")) {
-      setFormError("Please upload a valid image file.");
+      setFormError(t("teams.invalidImage"));
       return;
     }
     setFormError(null);
@@ -236,8 +236,8 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
   return (
     <section className="page-stack">
       <PageHeader
-        eyebrow="Teams and rosters"
-        title="League teams"
+        eyebrow={t("teams.eyebrow")}
+        title={t("teams.title")}
         description=""
         actions={
           isAdmin ? (
@@ -246,29 +246,26 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
               type="button"
               onClick={() => setFormOpen((prev) => !prev)}
             >
-              {formOpen ? "Close form" : "Add team"}
+              {formOpen ? t("common.closeForm") : t("buttons.addTeam")}
             </button>
           ) : undefined
         }
       />
 
-      {loading && <LoadingState label="Loading teams..." />}
+      {loading && <LoadingState label={t("teams.loading")} />}
       {!loading && endpointMissing && (
-        <Notice variant="warning">Teams endpoint not available yet.</Notice>
+        <Notice variant="warning">{t("teams.endpointMissing")}</Notice>
       )}
       {!loading && notice && <Notice variant="success">{notice}</Notice>}
       {!loading && error && <Notice variant="error">{error}</Notice>}
 
       {!loading && !error && !endpointMissing && (
         <SurfaceCard>
-          <SectionHeader
-            title="All teams"
-            description=""
-          />
+          <SectionHeader title={t("teams.allTeams")} description="" />
           {orderedTeams.length === 0 ? (
             <EmptyState
-              title="No teams found"
-              description="Add a team to start building the league table and roster pages."
+              title={t("teams.emptyTitle")}
+              description={t("teams.emptyDescription")}
             />
           ) : (
             <div className="team-grid">
@@ -286,14 +283,14 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
                           <h3>{team.name}</h3>
                           <div className="team-record-badge">{getRecord(team)}</div>
                         </div>
-                        <p className="team-rank">Rank #{index + 1}</p>
+                        <p className="team-rank">{t("teams.rankLabel", { count: index + 1 })}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="team-card-actions">
                     <Link className="button button-secondary button-small" to={`/teams/${team.id}/roster`}>
-                      View roster
+                      {t("buttons.viewRoster")}
                     </Link>
                     {isAdmin && (
                       <button
@@ -301,7 +298,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
                         onClick={() => handleDeleteTeam(team.id)}
                         disabled={deletingId === team.id}
                       >
-                        {deletingId === team.id ? "Deleting..." : "Delete"}
+                        {deletingId === team.id ? t("common.deleteInProgress") : t("buttons.delete")}
                       </button>
                     )}
                   </div>
@@ -316,8 +313,8 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <SurfaceCard className="modal-card">
             <SectionHeader
-              title="Add team"
-              description="Create a new club entry and optionally attach a logo."
+              title={t("teams.modalTitle")}
+              description={t("teams.modalDescription")}
               action={
                 <button
                   className="button button-secondary button-small"
@@ -327,33 +324,33 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
                     setFormError(null);
                   }}
                 >
-                  Close
+                  {t("buttons.close")}
                 </button>
               }
             />
             <form className="form-grid team-form-grid" onSubmit={handleCreateTeam}>
               <label className="field">
-                <span>Team name</span>
+                <span>{t("teams.nameLabel")}</span>
                 <input
                   value={formData.name}
                   onChange={(event) => handleFormChange("name", event.target.value)}
-                  placeholder="e.g. Cubs"
+                  placeholder={t("teams.namePlaceholder")}
                 />
               </label>
 
               <label className="field">
-                <span>Home field</span>
+                <span>{t("teams.homeFieldLabel")}</span>
                 <input
                   value={formData.home_field}
                   onChange={(event) => handleFormChange("home_field", event.target.value)}
-                  placeholder="e.g. Benito Juarez Field 1"
+                  placeholder={t("teams.homeFieldPlaceholder")}
                 />
               </label>
 
               <label className="field">
-                <span>Team logo</span>
+                <span>{t("teams.logoLabel")}</span>
                 <label className="file-trigger">
-                  <span>{formLogo ? formLogo.name : "Choose image"}</span>
+                  <span>{formLogo ? formLogo.name : t("common.chooseImage")}</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -364,7 +361,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
 
               <div className="form-actions">
                 <button className="button button-primary" type="submit" disabled={saving || uploading}>
-                  {saving || uploading ? "Saving..." : "Save team"}
+                  {saving || uploading ? t("common.saveInProgress") : t("teams.saveTeam")}
                 </button>
                 <button
                   className="button button-secondary"
@@ -374,7 +371,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
                     setFormError(null);
                   }}
                 >
-                  Cancel
+                  {t("buttons.cancel")}
                 </button>
               </div>
             </form>

@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { login, setToken } from "../api";
 import { Notice, PageHeader, SurfaceCard } from "../components/ui";
 
 export default function LandingPage({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -17,7 +19,7 @@ export default function LandingPage({ onDone }: { onDone: () => void }) {
       setToken(access_token);
       onDone();
     } catch {
-      setErr("Invalid admin credentials.");
+      setErr(t("auth.invalidCredentials"));
     } finally {
       setSubmitting(false);
     }
@@ -25,45 +27,39 @@ export default function LandingPage({ onDone }: { onDone: () => void }) {
 
   return (
     <section className="page-stack">
-      <PageHeader
-        eyebrow=""
-        title="Admin login"
-        description=""
-      />
+      <PageHeader eyebrow="" title={t("landing.title")} description="" />
 
       <SurfaceCard className="login-card">
         <div className="login-card-copy">
-          <h2>League Login</h2>
-          <p>
-
-          </p>
+          <h2>{t("landing.heading")}</h2>
+          <p />
         </div>
 
         <form className="form-grid login-form-grid" onSubmit={submit}>
           <label className="field">
-            <span>Email</span>
+            <span>{t("common.email")}</span>
             <input
               autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="commissioner@example.com"
+              placeholder={t("landing.emailPlaceholder")}
             />
           </label>
 
           <label className="field">
-            <span>Password</span>
+            <span>{t("common.password")}</span>
             <input
               type="password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter password"
+              placeholder={t("landing.passwordPlaceholder")}
             />
           </label>
 
           <div className="form-actions">
             <button className="button button-primary" disabled={submitting} type="submit">
-              {submitting ? "Signing in..." : "Sign in"}
+              {submitting ? t("landing.signingIn") : t("buttons.login")}
             </button>
           </div>
         </form>

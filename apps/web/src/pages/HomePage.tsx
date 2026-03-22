@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FaFacebookF, FaYoutube } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { fetchGamesPublic, fetchTeamsPublic, getPosts, resolveApiUrl } from "../api";
@@ -34,6 +35,7 @@ function HomeSocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]
 }
 
 export default function HomePage() {
+  const { t } = useTranslation();
   const [teams, setTeams] = useState<Team[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -64,7 +66,7 @@ export default function HomePage() {
         gamesRes.status === "rejected" &&
         postsRes.status === "rejected"
       ) {
-        setError("Unable to load the league dashboard right now.");
+        setError(t("home.loadError"));
       }
 
       setLoading(false);
@@ -74,28 +76,28 @@ export default function HomePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   const teamMap = useMemo(() => buildTeamMap(teams), [teams]);
   const standings = useMemo(() => sortStandings(teams), [teams]);
   const standingsSnapshot = useMemo(() => standings.slice(0, 5), [standings]);
-  const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0,3), [games]);
+  const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 3), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 4), [games]);
   const latestPosts = useMemo(() => posts.slice(0, 4), [posts]);
 
   return (
     <section className="page-stack">
-      <section className="home-hero-banner" aria-label="League hero image">
+      <section className="home-hero-banner" aria-label={t("aria.leagueHeroImage")}>
         <img
           className="home-hero-banner-image"
           src={homeHeroImage}
-          alt="Baseball players under stadium lights"
+          alt={t("home.heroImageAlt")}
         />
         <div className="home-hero-banner-overlay" />
         <div className="home-hero-banner-copy">
-          <p className="home-hero-kicker">WELCOME TO</p>
+          <p className="home-hero-kicker">{t("home.welcomeTo")}</p>
           <div className="home-hero-title-group">
-            <h1 className="home-hero-title" aria-label="Benito Juarez Men's Baseball League">
+            <h1 className="home-hero-title" aria-label={leagueProfile.name}>
               <span className="home-hero-word home-hero-word-benito">
                 <span className="home-hero-word-white">BEN</span>
                 <span className="home-hero-word-outline">IT</span>
@@ -109,23 +111,19 @@ export default function HomePage() {
           </div>
           <div className="home-hero-meta">
             <span className="home-hero-meta-item home-hero-meta-item-primary">
-              MEN&apos;S BASEBALL LEAGUE
+              {t("home.heroMeta")}
             </span>
-            <span className="home-hero-meta-item">CHICAGO.IL</span>
-            <span className="home-hero-meta-badge">EST.1975</span>
+            <span className="home-hero-meta-item">{t("home.heroLocation")}</span>
+            <span className="home-hero-meta-badge">{t("home.heroEstablished")}</span>
           </div>
           <SurfaceCard className="home-about-card" padded={false}>
             <div className="home-about-card-inner">
               <div className="home-about-card-copy">
-                <p className="home-about-kicker">About</p>
-                <p>
-                  Benito Juarez Men&apos;s League is a community baseball league built around
-                  competitive weekend games, local teams, and a long-running Chicago baseball
-                  tradition.
-                </p>
+                <p className="home-about-kicker">{t("home.about")}</p>
+                <p>{t("home.aboutText")}</p>
               </div>
 
-              <div className="home-about-socials" aria-label="League social media">
+              <div className="home-about-socials" aria-label={t("aria.leagueSocialMedia")}>
                 {leagueProfile.socials.map((social) => (
                   <a
                     key={social.label}
@@ -144,7 +142,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {loading && <LoadingState label="Loading league dashboard..." />}
+      {loading && <LoadingState label={t("home.loading")} />}
       {!loading && error && <Notice variant="error">{error}</Notice>}
 
       {!loading && !error && (
@@ -152,19 +150,19 @@ export default function HomePage() {
           <div className="home-primary">
             <SurfaceCard>
               <SectionHeader
-                title="Upcoming games"
+                title={t("home.upcomingGames")}
                 description=""
                 action={
                   <Link className="button button-secondary button-small" to="/games">
-                    Full schedule
+                    {t("buttons.fullSchedule")}
                   </Link>
                 }
               />
               {upcomingGames.length === 0 ? (
                 <EmptyState
                   compact
-                  title="No games scheduled yet"
-                  description="Upcoming matchups will appear here as soon as the schedule is posted."
+                  title={t("home.noUpcomingTitle")}
+                  description={t("home.noUpcomingDescription")}
                 />
               ) : (
                 <div className="matchup-list">
@@ -176,9 +174,9 @@ export default function HomePage() {
                         key={game.id}
                         className="home-game-card"
                         game={game}
-                        awayTeamName={away?.name ?? `Team ${game.away_team_id}`}
+                        awayTeamName={away?.name ?? t("common.teamFallback", { id: game.away_team_id })}
                         awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
-                        homeTeamName={home?.name ?? `Team ${game.home_team_id}`}
+                        homeTeamName={home?.name ?? t("common.teamFallback", { id: game.home_team_id })}
                         homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
                         showMetaDate
                         variant="featured"
@@ -191,14 +189,14 @@ export default function HomePage() {
 
             <SurfaceCard>
               <SectionHeader
-                title="Recent results"
-                description="Latest final scores already entered into the league schedule."
+                title={t("home.recentResults")}
+                description={t("")}
               />
               {recentResults.length === 0 ? (
                 <EmptyState
                   compact
-                  title="No final scores yet"
-                  description="Completed games will show here once results are posted."
+                  title={t("home.noResultsTitle")}
+                  description={t("home.noResultsDescription")}
                 />
               ) : (
                 <div className="results-list">
@@ -210,9 +208,9 @@ export default function HomePage() {
                         key={game.id}
                         className="home-game-card"
                         game={game}
-                        awayTeamName={away?.name ?? `Team ${game.away_team_id}`}
+                        awayTeamName={away?.name ?? t("common.teamFallback", { id: game.away_team_id })}
                         awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
-                        homeTeamName={home?.name ?? `Team ${game.home_team_id}`}
+                        homeTeamName={home?.name ?? t("common.teamFallback", { id: game.home_team_id })}
                         homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
                         showMetaDate
                         variant="featured"
@@ -225,19 +223,19 @@ export default function HomePage() {
 
             <SurfaceCard>
               <SectionHeader
-                title="League announcements"
-                description="Recent commissioner updates and public notices."
+                title={t("home.announcements")}
+                description={t("")}
                 action={
                   <Link className="button button-secondary button-small" to="/posts">
-                    All announcements
+                    {t("buttons.allAnnouncements")}
                   </Link>
                 }
               />
               {latestPosts.length === 0 ? (
                 <EmptyState
                   compact
-                  title="No announcements yet"
-                  description="Public league updates will appear here."
+                  title={t("home.noAnnouncementsTitle")}
+                  description={t("home.noAnnouncementsDescription")}
                 />
               ) : (
                 <div className="announcement-list">
@@ -250,14 +248,14 @@ export default function HomePage() {
                             {formatDateTime(post.created_at)}
                           </time>
                         </div>
-                        <StatusChip tone="accent">Announcement</StatusChip>
+                        <StatusChip tone="accent">{t("home.announcementBadge")}</StatusChip>
                       </div>
                       <p className="announcement-content">{truncate(post.content, 220)}</p>
                       {post.image_url && (
                         <img
                           className="announcement-image"
                           src={resolveApiUrl(post.image_url)}
-                          alt="League announcement"
+                          alt={t("common.announcementImageAlt")}
                           loading="lazy"
                         />
                       )}
@@ -269,38 +267,40 @@ export default function HomePage() {
           </div>
 
           <div className="home-secondary">
-            <SurfaceCard>
+            <SurfaceCard className="standings-surface standings-surface-compact">
               <SectionHeader
-                title="Standings snapshot"
+                title={t("home.standingsSnapshot")}
                 description=""
                 action={
                   <Link className="button button-secondary button-small" to="/standings">
-                    Full standings
+                    {t("buttons.fullStandings")}
                   </Link>
                 }
               />
               {standings.length === 0 ? (
                 <EmptyState
                   compact
-                  title="No standings yet"
-                  description="Team records will appear after final scores are entered."
+                  title={t("home.noStandingsTitle")}
+                  description={t("home.noStandingsDescription")}
                 />
               ) : (
                 <>
                   <div className="table-wrap standings-table-wrap">
-                    <table className="league-table compact-table">
+                    <table className="league-table standings-table standings-table-compact compact-table">
                       <thead>
                         <tr>
-                          <th>Rank</th>
-                          <th>Team</th>
-                          <th>Record</th>
+                          <th>{t("common.rank")}</th>
+                          <th>{t("common.team")}</th>
+                          <th>{t("common.record")}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {standingsSnapshot.map((team, index) => (
-                          <tr key={team.id}>
-                            <td data-label="Rank">#{index + 1}</td>
-                            <td data-label="Team">
+                          <tr className="standings-row" key={team.id}>
+                            <td className="standings-cell-rank" data-label={t("common.rank")}>
+                              <span className="standings-rank">#{index + 1}</span>
+                            </td>
+                            <td className="standings-cell-team" data-label={t("common.team")}>
                               <div className="table-team">
                                 <TeamAvatar
                                   name={team.name}
@@ -310,13 +310,13 @@ export default function HomePage() {
                                 <span>{team.name}</span>
                               </div>
                             </td>
-                            <td data-label="Record">{getRecord(team)}</td>
+                            <td className="standings-cell-record" data-label={t("common.record")}>{getRecord(team)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  <ol className="standings-mobile-list" aria-label="Standings snapshot">
+                  <ol className="standings-mobile-list" aria-label={t("aria.standingsSnapshot")}>
                     {standingsSnapshot.map((team, index) => {
                       const wins = team.wins ?? 0;
                       const losses = team.losses ?? 0;
@@ -337,7 +337,7 @@ export default function HomePage() {
                             </div>
                             <div className="standings-mobile-record">{getRecord(team)}</div>
                             <div className="standings-mobile-meta">
-                              W {wins} • L {losses}
+                              {t("home.standingsSummary", { wins, losses })}
                             </div>
                           </article>
                         </li>
@@ -349,30 +349,26 @@ export default function HomePage() {
             </SurfaceCard>
 
             <SurfaceCard>
-              <SectionHeader title="Quick links" description="" />
+              <SectionHeader title={t("home.quickLinks")} description="" />
               <div className="quick-links">
                 <Link className="quick-link-card" to="/games">
-                  <strong>Today's schedule</strong>
-                  <span>Check upcoming matchups and final scores.</span>
+                  <strong>{t("home.todayScheduleTitle")}</strong>
+                  <span>{t("home.todayScheduleDescription")}</span>
                 </Link>
                 <Link className="quick-link-card" to="/teams">
-                  <strong>Team rosters</strong>
-                  <span>Browse teams, records, and player lists.</span>
+                  <strong>{t("home.teamRostersTitle")}</strong>
+                  <span>{t("home.teamRostersDescription")}</span>
                 </Link>
                 <Link className="quick-link-card" to="/posts">
-                  <strong>Announcements</strong>
-                  <span>Read recent league updates and notices.</span>
+                  <strong>{t("home.announcementsTitle")}</strong>
+                  <span>{t("home.announcementsLinkDescription")}</span>
                 </Link>
               </div>
             </SurfaceCard>
 
             <SurfaceCard tone="subtle">
-              <SectionHeader title="Season note" />
-              <p className="season-note">
-                This portal is designed for quick checks at the field: schedule first,
-                standings second, announcements close at hand, and commissioner tools
-                available without leaving the main workflow pages.
-              </p>
+              <SectionHeader title={t("home.seasonNote")} />
+              <p className="season-note">{t("home.seasonNoteText")}</p>
             </SurfaceCard>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import i18n, { getCurrentLocale } from "../i18n";
 import type { Game, Team } from "../api";
 
 function firstNonEmpty(...values: Array<string | null | undefined>) {
@@ -31,10 +32,14 @@ export function parseGameDateTime(game: Pick<Game, "date" | "time">) {
   return date;
 }
 
+function formatDateValue(date: Date, options: Intl.DateTimeFormatOptions) {
+  return new Intl.DateTimeFormat(getCurrentLocale(), options).format(date);
+}
+
 export function formatDate(value: string, options?: Intl.DateTimeFormatOptions) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
+  return formatDateValue(date, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -45,7 +50,7 @@ export function formatDate(value: string, options?: Intl.DateTimeFormatOptions) 
 export function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
+  return formatDateValue(date, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -55,9 +60,9 @@ export function formatDateTime(value: string) {
 }
 
 export function formatTime(value?: string | null) {
-  if (!value) return "Time TBD";
+  if (!value) return i18n.t("common.timeTbd");
   const trimmed = value.trim();
-  if (!trimmed) return "Time TBD";
+  if (!trimmed) return i18n.t("common.timeTbd");
   const parts = trimmed.split(":");
   if (parts.length < 2) return trimmed;
   const hour = Number(parts[0]);
@@ -65,7 +70,7 @@ export function formatTime(value?: string | null) {
   if (Number.isNaN(hour) || Number.isNaN(minute)) return trimmed;
   const temp = new Date();
   temp.setHours(hour, minute, 0, 0);
-  return temp.toLocaleTimeString(undefined, {
+  return temp.toLocaleTimeString(getCurrentLocale(), {
     hour: "numeric",
     minute: "2-digit",
   });
@@ -86,7 +91,7 @@ export function getGameScore(game: Pick<Game, "home_score" | "away_score">) {
 export function formatFullGameDate(game: Pick<Game, "date">) {
   const date = parseDateOnly(game.date);
   if (!date) return formatDate(game.date);
-  return date.toLocaleDateString(undefined, {
+  return formatDateValue(date, {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -123,12 +128,12 @@ export function getGameShortLocation(
     ) {
       return location;
     }
-    return `${location} • Field ${fieldNumber}`;
+    return `${location} • ${i18n.t("games.fieldWithNumber", { number: fieldNumber })}`;
   }
 
   if (location) return location;
-  if (fieldNumber) return `Field ${fieldNumber}`;
-  return "Location TBD";
+  if (fieldNumber) return i18n.t("games.fieldWithNumber", { number: fieldNumber });
+  return i18n.t("common.locationTbd");
 }
 
 export function getGameNotes(game: Pick<Game, "notes">) {
@@ -164,15 +169,15 @@ export function getGameStatusMeta(status?: string | null) {
   const normalized = (status ?? "SCHEDULED").toUpperCase();
   switch (normalized) {
     case "FINAL":
-      return { label: "Final", tone: "success" as const };
+      return { label: i18n.t("games.status.final"), tone: "success" as const };
     case "IN_PROGRESS":
-      return { label: "In progress", tone: "accent" as const };
+      return { label: i18n.t("games.status.inProgress"), tone: "accent" as const };
     case "POSTPONED":
-      return { label: "Postponed", tone: "warning" as const };
+      return { label: i18n.t("games.status.postponed"), tone: "warning" as const };
     case "CANCELLED":
-      return { label: "Cancelled", tone: "danger" as const };
+      return { label: i18n.t("games.status.cancelled"), tone: "danger" as const };
     default:
-      return { label: "Scheduled", tone: "neutral" as const };
+      return { label: i18n.t("games.status.scheduled"), tone: "neutral" as const };
   }
 }
 
@@ -188,13 +193,13 @@ export function groupGamesByDate(games: Game[]) {
     const date = parseDateOnly(game.date);
     const key = date ? date.toISOString().slice(0, 10) : `game-${game.id}`;
     const label = date
-      ? date.toLocaleDateString(undefined, {
+      ? formatDateValue(date, {
           weekday: "long",
           month: "short",
           day: "numeric",
           year: "numeric",
         })
-      : "Unscheduled";
+      : i18n.t("common.unscheduled");
     const last = grouped[grouped.length - 1];
     if (!last || last.key !== key) {
       grouped.push({ key, label, games: [game] });

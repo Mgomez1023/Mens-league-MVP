@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 import {
   ApiError,
@@ -53,6 +54,7 @@ const emptyForm = {
 };
 
 export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageProps) {
+  const { t } = useTranslation();
   const { teamId } = useParams();
   const teamNumericId = Number(teamId);
   const [team, setTeam] = useState<Team | null>(null);
@@ -89,7 +91,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
       setNotice(null);
 
       if (!teamId || Number.isNaN(teamNumericId)) {
-        setError("Invalid team selection.");
+        setError(t("roster.invalidTeam"));
         setLoading(false);
         return;
       }
@@ -111,7 +113,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         if (rosterRes.reason instanceof ApiError && rosterRes.reason.status === 404) {
           setEndpointMissing(true);
         } else {
-          setError("Unable to load roster right now.");
+          setError(t("roster.loadError"));
         }
         setLoading(false);
         return;
@@ -141,7 +143,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
       }
 
       if (teamsRes.status === "rejected" || gamesRes.status === "rejected") {
-        setNotice("Roster loaded. Some team summary details may be incomplete right now.");
+        setNotice(t("roster.partialNotice"));
       }
 
       setLoading(false);
@@ -151,7 +153,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
     return () => {
       active = false;
     };
-  }, [authed, isAdmin, onAuthError, refreshKey, teamId, teamNumericId]);
+  }, [authed, isAdmin, onAuthError, refreshKey, t, teamId, teamNumericId]);
 
   const opponentMap = useMemo(
     () =>
@@ -163,6 +165,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   );
   const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 3), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 3), [games]);
+  const teamDisplayName = team?.name ?? t("common.teamFallback", { id: teamId ?? "" });
 
   const openAddModal = () => {
     setEditingPlayer(null);
@@ -201,12 +204,12 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
     setNotice(null);
 
     if (!formData.first_name.trim() || !formData.last_name.trim()) {
-      setFormError("First and last name are required.");
+      setFormError(t("roster.firstLastRequired"));
       return;
     }
 
     if (!teamId || Number.isNaN(teamNumericId)) {
-      setFormError("Invalid team selection.");
+      setFormError(t("roster.invalidTeam"));
       return;
     }
 
@@ -231,7 +234,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
             return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
           }),
         );
-        setNotice("Player updated.");
+        setNotice(t("roster.playerUpdated"));
       } else {
         const created = await createPlayer(teamNumericId, payload);
         setPlayers((prev) =>
@@ -242,7 +245,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
             return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
           }),
         );
-        setNotice("Player added.");
+        setNotice(t("roster.playerAdded"));
       }
       closeModal();
     } catch (err) {
@@ -251,38 +254,38 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         return;
       }
       if (err instanceof PermissionError) {
-        setFormError("Admin access required.");
+        setFormError(t("auth.adminAccessRequired"));
         return;
       }
       if (err instanceof ApiError && err.detail) {
         setFormError(err.detail);
         return;
       }
-      setFormError("Unable to save player right now.");
+      setFormError(t("roster.saveError"));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeletePlayer = async (playerId: number) => {
-    if (!window.confirm("Delete this player?")) return;
+    if (!window.confirm(t("roster.deleteConfirm"))) return;
     setDeletingId(playerId);
     setError(null);
     setNotice(null);
     try {
       await deletePlayer(playerId);
       setPlayers((prev) => prev.filter((player) => player.id !== playerId));
-      setNotice("Player removed.");
+      setNotice(t("roster.playerRemoved"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setError("Admin access required.");
+        setError(t("auth.adminAccessRequired"));
         return;
       }
-      setError("Unable to delete player right now.");
+      setError(t("roster.deleteError"));
     } finally {
       setDeletingId(null);
     }
@@ -291,7 +294,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const handleCsvImport = async (file: File) => {
     if (!file || importing) return;
     if (!teamId || Number.isNaN(teamNumericId)) {
-      setError("Invalid team selection.");
+      setError(t("roster.invalidTeam"));
       return;
     }
     setImporting(true);
@@ -301,17 +304,17 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
       const result = await importRosterCsv(teamNumericId, file);
       setImportResult(result);
       setRefreshKey((prev) => prev + 1);
-      setNotice("Roster CSV processed.");
+      setNotice(t("roster.csvProcessed"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setError("Admin access required.");
+        setError(t("auth.adminAccessRequired"));
         return;
       }
-      setError("Unable to import roster.");
+      setError(t("roster.importError"));
     } finally {
       setImporting(false);
     }
@@ -320,11 +323,11 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const handleTeamLogoUpload = async (file: File | null) => {
     if (!file || uploadingLogo) return;
     if (!file.type.startsWith("image/")) {
-      setError("Please upload a valid image file.");
+      setError(t("roster.invalidImage"));
       return;
     }
     if (!teamId || Number.isNaN(teamNumericId)) {
-      setError("Invalid team selection.");
+      setError(t("roster.invalidTeam"));
       return;
     }
 
@@ -340,21 +343,21 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
           entry.id === teamNumericId ? { ...entry, logo_url: result.logo_url } : entry,
         ),
       );
-      setNotice("Team logo updated.");
+      setNotice(t("roster.logoUpdated"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setError("Admin access required.");
+        setError(t("auth.adminAccessRequired"));
         return;
       }
       if (err instanceof ApiError && err.detail) {
         setError(err.detail);
         return;
       }
-      setError("Unable to upload the team logo right now.");
+      setError(t("roster.uploadLogoError"));
     } finally {
       setUploadingLogo(false);
     }
@@ -363,21 +366,21 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   return (
     <section className="page-stack">
       <PageHeader
-        eyebrow="Team roster"
-        title={team?.name ?? `Team ${teamId ?? ""}`}
-        description="Team lineup, player list, and nearby schedule context."
+        eyebrow={t("roster.eyebrow")}
+        title={teamDisplayName}
+        description={t("roster.description")}
         actions={
           <div className="inline-actions">
             <Link className="button button-secondary" to="/teams">
-              Back to teams
+              {t("buttons.backToTeams")}
             </Link>
             {isAdmin && (
               <>
                 <button className="button button-primary" type="button" onClick={openAddModal}>
-                  Add player
+                  {t("buttons.addPlayer")}
                 </button>
                 <label className="button button-secondary file-button-inline">
-                  {importing ? "Importing..." : "Import CSV"}
+                  {importing ? `${t("buttons.importCsv")}...` : t("buttons.importCsv")}
                   <input
                     type="file"
                     accept=".csv,text/csv"
@@ -389,7 +392,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                   />
                 </label>
                 <label className="button button-secondary file-button-inline">
-                  {uploadingLogo ? "Uploading logo..." : "Upload logo"}
+                  {uploadingLogo ? `${t("buttons.uploadLogo")}...` : t("buttons.uploadLogo")}
                   <input
                     type="file"
                     accept="image/*"
@@ -407,9 +410,9 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         }
       />
 
-      {loading && <LoadingState label="Loading roster..." />}
+      {loading && <LoadingState label={t("roster.loading")} />}
       {!loading && endpointMissing && (
-        <Notice variant="warning">Roster endpoint not available yet.</Notice>
+        <Notice variant="warning">{t("roster.endpointMissing")}</Notice>
       )}
       {!loading && notice && <Notice variant="info">{notice}</Notice>}
       {!loading && error && <Notice variant="error">{error}</Notice>}
@@ -419,26 +422,24 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
           <SurfaceCard tone="accent" className="team-summary-card">
             <div className="team-summary-brand">
               <TeamAvatar
-                name={team?.name ?? `Team ${teamId ?? ""}`}
+                name={teamDisplayName}
                 src={team?.logo_url ? resolveApiUrl(team.logo_url) : null}
                 size="lg"
               />
               <div>
-                <p className="hero-kicker">Team profile</p>
-                <h2>{team?.name ?? `Team ${teamId ?? ""}`}</h2>
+                <h2>{teamDisplayName}</h2>
                 <p>
-                  {team?.home_field ? `Home field: ${team.home_field}` : "Home field not listed"}
                 </p>
               </div>
             </div>
             <div className="team-summary-side">
               <div className="team-summary-stats">
                 <div className="summary-stat">
-                  <span>Record</span>
+                  <span>{t("common.record")}</span>
                   <strong>{team ? getRecord(team) : "0-0"}</strong>
                 </div>
                 <div className="summary-stat">
-                  <span>Players</span>
+                  <span>{t("common.players")}</span>
                   <strong>{players.length}</strong>
                 </div>
               </div>
@@ -447,17 +448,21 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
 
           {isAdmin && importResult && (
             <SurfaceCard>
-              <SectionHeader title="CSV import results" />
+              <SectionHeader title={t("roster.csvImportResults")} />
               <div className="import-results">
                 <p>
-                  Created {importResult.created}, Updated {importResult.updated}, Skipped{" "}
-                  {importResult.skipped}, Errors {importResult.errors.length}
+                  {t("roster.importSummary", {
+                    created: importResult.created,
+                    updated: importResult.updated,
+                    skipped: importResult.skipped,
+                    errors: importResult.errors.length,
+                  })}
                 </p>
                 {importResult.errors.length > 0 && (
                   <ul className="error-list">
                     {importResult.errors.map((item) => (
                       <li key={`${item.row}-${item.message}`}>
-                        Row {item.row}: {item.message}
+                        {t("common.row", { row: item.row })}: {item.message}
                       </li>
                     ))}
                   </ul>
@@ -468,58 +473,58 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
 
           <div className="roster-layout">
             <div className="roster-main">
-              <SurfaceCard>
+              <SurfaceCard className="roster-table-surface">
                 <SectionHeader
-                  title="Active roster"
-                  description="Player list for the selected team."
+                  title={t("roster.activeRoster")}
+                  description={t("roster.activeRosterDescription")}
                 />
                 {players.length === 0 ? (
                   <EmptyState
-                    title="No players listed"
-                    description="Add players manually or import a roster CSV to populate this team."
+                    title={t("roster.emptyTitle")}
+                    description={t("roster.emptyDescription")}
                   />
                 ) : (
-                  <div className="table-wrap">
-                    <table className="league-table">
+                  <div className="table-wrap roster-table-wrap">
+                    <table className="league-table roster-table">
                       <thead>
                         <tr>
                           <th>#</th>
-                          <th>Player</th>
-                          <th>Position</th>
-                          <th>Bats</th>
-                          <th>Throws</th>
-                          {isAdmin && <th>Actions</th>}
+                          <th>{t("common.players")}</th>
+                          <th>{t("common.position")}</th>
+                          <th>{t("common.bats")}</th>
+                          <th>{t("common.throws")}</th>
+                          {isAdmin && <th>{t("common.actions")}</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {players.map((player) => (
-                          <tr key={player.id}>
-                            <td data-label="#">{player.number ?? "-"}</td>
-                            <td data-label="Player">
+                          <tr className="roster-row" key={player.id}>
+                            <td className="roster-cell-number" data-label="#">{player.number ?? "-"}</td>
+                            <td className="roster-cell-player" data-label={t("common.players")}>
                               <div className="player-name-cell">
                                 <strong>
                                   {player.first_name} {player.last_name}
                                 </strong>
                               </div>
                             </td>
-                            <td data-label="Position">{player.position ?? "-"}</td>
-                            <td data-label="Bats">{player.bats ?? "-"}</td>
-                            <td data-label="Throws">{player.throws ?? "-"}</td>
+                            <td className="roster-cell-stat" data-label={t("common.position")}>{player.position ?? "-"}</td>
+                            <td className="roster-cell-stat" data-label={t("common.bats")}>{player.bats ?? "-"}</td>
+                            <td className="roster-cell-stat" data-label={t("common.throws")}>{player.throws ?? "-"}</td>
                             {isAdmin && (
-                              <td data-label="Actions">
+                              <td className="roster-cell-actions" data-label={t("common.actions")}>
                                 <div className="table-actions">
                                   <button
                                     className="button button-secondary button-small"
                                     onClick={() => openEditModal(player)}
                                   >
-                                    Edit
+                                    {t("buttons.edit")}
                                   </button>
                                   <button
                                     className="button button-danger button-small"
                                     onClick={() => handleDeletePlayer(player.id)}
                                     disabled={deletingId === player.id}
                                   >
-                                    {deletingId === player.id ? "Deleting..." : "Delete"}
+                                    {deletingId === player.id ? t("common.deleteInProgress") : t("buttons.delete")}
                                   </button>
                                 </div>
                               </td>
@@ -535,19 +540,19 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
 
             <div className="roster-side">
               <SurfaceCard>
-                <SectionHeader title="Upcoming games" />
+                <SectionHeader title={t("roster.upcomingGames")} />
                 {upcomingGames.length === 0 ? (
                   <EmptyState
                     compact
-                    title="No upcoming games"
-                    description="Future matchups for this team will appear here."
+                    title={t("roster.noUpcomingTitle")}
+                    description={t("roster.noUpcomingDescription")}
                   />
                 ) : (
                   <div className="mini-game-list">
                     {upcomingGames.map((game) => {
                       const isHome = game.home_team_id === teamNumericId;
                       const opponentId = isHome ? game.away_team_id : game.home_team_id;
-                      const opponentName = opponentMap[opponentId] ?? `Team ${opponentId}`;
+                      const opponentName = opponentMap[opponentId] ?? t("common.teamFallback", { id: opponentId });
                       return (
                         <div className="mini-game-card" key={game.id}>
                           <div className="mini-game-head">
@@ -556,8 +561,12 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                               {getGameStatusMeta(game.status).label}
                             </StatusChip>
                           </div>
-                          <strong>{isHome ? "vs" : "at"} {opponentName}</strong>
-                          <p>{formatTime(game.time)} | {game.field || "Field TBD"}</p>
+                          <strong>
+                            {isHome
+                              ? t("roster.vsOpponent", { opponent: opponentName })
+                              : t("roster.atOpponent", { opponent: opponentName })}
+                          </strong>
+                          <p>{formatTime(game.time)} | {game.field || t("common.fieldTbd")}</p>
                         </div>
                       );
                     })}
@@ -566,12 +575,12 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
               </SurfaceCard>
 
               <SurfaceCard>
-                <SectionHeader title="Recent results" />
+                <SectionHeader title={t("roster.recentResults")} />
                 {recentResults.length === 0 ? (
                   <EmptyState
                     compact
-                    title="No recent finals"
-                    description="Completed results involving this team will appear here."
+                    title={t("roster.noRecentTitle")}
+                    description={t("roster.noRecentDescription")}
                   />
                 ) : (
                   <div className="mini-game-list">
@@ -580,15 +589,19 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                       const teamScore = isHome ? game.home_score : game.away_score;
                       const opponentScore = isHome ? game.away_score : game.home_score;
                       const opponentId = isHome ? game.away_team_id : game.home_team_id;
-                      const opponentName = opponentMap[opponentId] ?? `Team ${opponentId}`;
+                      const opponentName = opponentMap[opponentId] ?? t("common.teamFallback", { id: opponentId });
                       return (
                         <div className="mini-game-card" key={game.id}>
                           <div className="mini-game-head">
                             <span>{formatDate(game.date)}</span>
-                            <StatusChip tone="success">Final</StatusChip>
+                            <StatusChip tone="success">{t("games.status.final")}</StatusChip>
                           </div>
-                          <strong>{isHome ? "vs" : "at"} {opponentName}</strong>
-                          <p>{teamScore ?? "-"} - {opponentScore ?? "-"} | {game.field || "Field TBD"}</p>
+                          <strong>
+                            {isHome
+                              ? t("roster.vsOpponent", { opponent: opponentName })
+                              : t("roster.atOpponent", { opponent: opponentName })}
+                          </strong>
+                          <p>{teamScore ?? "-"} - {opponentScore ?? "-"} | {game.field || t("common.fieldTbd")}</p>
                         </div>
                       );
                     })}
@@ -604,30 +617,30 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <SurfaceCard className="modal-card">
             <SectionHeader
-              title={editingPlayer ? "Edit player" : "Add player"}
+              title={editingPlayer ? t("roster.modal.editTitle") : t("roster.modal.addTitle")}
               action={
                 <button className="button button-secondary button-small" type="button" onClick={closeModal}>
-                  Close
+                  {t("buttons.close")}
                 </button>
               }
             />
             <form className="form-grid" onSubmit={handleSavePlayer}>
               <label className="field">
-                <span>First name</span>
+                <span>{t("roster.modal.firstName")}</span>
                 <input
                   value={formData.first_name}
                   onChange={(event) => handleFormChange("first_name", event.target.value)}
                 />
               </label>
               <label className="field">
-                <span>Last name</span>
+                <span>{t("roster.modal.lastName")}</span>
                 <input
                   value={formData.last_name}
                   onChange={(event) => handleFormChange("last_name", event.target.value)}
                 />
               </label>
               <label className="field">
-                <span>Number</span>
+                <span>{t("roster.modal.number")}</span>
                 <input
                   type="number"
                   min="0"
@@ -636,41 +649,41 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                 />
               </label>
               <label className="field">
-                <span>Position</span>
+                <span>{t("common.position")}</span>
                 <input
                   value={formData.position}
                   onChange={(event) => handleFormChange("position", event.target.value)}
                 />
               </label>
               <label className="field">
-                <span>Bats</span>
+                <span>{t("common.bats")}</span>
                 <select
                   value={formData.bats}
                   onChange={(event) => handleFormChange("bats", event.target.value)}
                 >
-                  <option value="">Select</option>
+                  <option value="">{t("common.select")}</option>
                   <option value="R">R</option>
                   <option value="L">L</option>
                   <option value="S">S</option>
                 </select>
               </label>
               <label className="field">
-                <span>Throws</span>
+                <span>{t("common.throws")}</span>
                 <select
                   value={formData.throws}
                   onChange={(event) => handleFormChange("throws", event.target.value)}
                 >
-                  <option value="">Select</option>
+                  <option value="">{t("common.select")}</option>
                   <option value="R">R</option>
                   <option value="L">L</option>
                 </select>
               </label>
               <div className="form-actions">
                 <button className="button button-primary" type="submit" disabled={saving}>
-                  {saving ? "Saving..." : "Save player"}
+                  {saving ? t("common.saveInProgress") : t("roster.modal.savePlayer")}
                 </button>
                 <button className="button button-secondary" type="button" onClick={closeModal}>
-                  Cancel
+                  {t("buttons.cancel")}
                 </button>
               </div>
             </form>

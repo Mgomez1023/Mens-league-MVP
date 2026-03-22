@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FaFacebookF, FaYoutube } from "react-icons/fa6";
 import { NavLink, Outlet } from "react-router-dom";
 import leagueLogo from "../assets/league-logo.png";
+import LanguageToggle from "../components/LanguageToggle";
 import { leagueProfile } from "../utils/site";
 import "../styles/dashboard.css";
 
@@ -10,20 +12,6 @@ type DashboardLayoutProps = {
   isAdmin: boolean;
   onLogout: () => void;
 };
-
-const publicLinks = [
-  { to: "/", label: "Home", end: true },
-  { to: "/games", label: "Schedule" },
-  { to: "/standings", label: "Standings" },
-  { to: "/teams", label: "Teams" },
-  { to: "/posts", label: "Announcements" },
-];
-
-const adminLinks = [
-  { to: "/games", label: "Manage Games" },
-  { to: "/teams", label: "Manage Teams" },
-  { to: "/posts", label: "Manage Posts" },
-];
 
 function SocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]["icon"] }) {
   if (icon === "facebook") {
@@ -34,8 +22,23 @@ function SocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]["ic
 }
 
 export default function DashboardLayout({ authed, isAdmin, onLogout }: DashboardLayoutProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+
+  const publicLinks = [
+    { to: "/", label: t("nav.home"), end: true },
+    { to: "/games", label: t("nav.games") },
+    { to: "/standings", label: t("nav.standings") },
+    { to: "/teams", label: t("nav.teams") },
+    { to: "/posts", label: t("nav.posts") },
+  ];
+
+  const adminLinks = [
+    { to: "/games", label: t("admin.manageGames") },
+    { to: "/teams", label: t("admin.manageTeams") },
+    { to: "/posts", label: t("admin.managePosts") },
+  ];
 
   const closeDrawer = () => setOpen(false);
   const closeAdminMenu = () => setAdminMenuOpen(false);
@@ -83,15 +86,15 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
               <img
                 className="app-brand-logo"
                 src={leagueLogo}
-                alt="Benito Juarez Men's Baseball League logo"
+                alt={t("common.leagueLogoAlt")}
               />
               <div className="app-brand-copy">
-                <span className="app-brand-title">Benito Juarez Men&apos;s Baseball League</span>
+                <span className="app-brand-title">{leagueProfile.name}</span>
               </div>
             </NavLink>
           </div>
 
-          <nav className="app-nav app-nav-desktop" aria-label="Primary">
+          <nav className="app-nav app-nav-desktop" aria-label={t("aria.primaryNavigation")}>
             {publicLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -105,7 +108,7 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
           </nav>
 
           <div className="app-header-actions">
-            <div className="header-socials" aria-label="League social media">
+            <div className="header-socials" aria-label={t("aria.leagueSocialMedia")}>
               {leagueProfile.socials.map((social) => (
                 <a
                   key={social.label}
@@ -127,9 +130,9 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
                 closeAdminMenu();
                 setOpen((prev) => !prev);
               }}
-              aria-label="Toggle navigation"
+              aria-label={t("aria.toggleNavigation")}
             >
-              Menu
+              {t("nav.menu")}
             </button>
             {isAdmin && (
               <button
@@ -139,10 +142,9 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
                 aria-controls="admin-panel"
                 onClick={() => setAdminMenuOpen((prev) => !prev)}
               >
-                Admin Tools
+                {t("admin.title")}
               </button>
             )}
-
           </div>
         </div>
       </header>
@@ -152,15 +154,20 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
       <aside className={`admin-panel ${adminMenuOpen ? "open" : ""}`} id="admin-panel" aria-hidden={!adminMenuOpen}>
         <div className="admin-panel-header">
           <div>
-            <p className="admin-panel-kicker">Commissioner</p>
-            <h2>Admin Tools</h2>
+            <p className="admin-panel-kicker">{t("admin.commissioner")}</p>
+            <h2>{t("admin.title")}</h2>
           </div>
-          <button className="admin-panel-close" type="button" onClick={closeAdminMenu} aria-label="Close admin tools">
-            Close
+          <button
+            className="admin-panel-close"
+            type="button"
+            onClick={closeAdminMenu}
+            aria-label={t("buttons.close")}
+          >
+            {t("buttons.close")}
           </button>
         </div>
 
-        <nav className="admin-panel-nav" aria-label="Desktop admin">
+        <nav className="admin-panel-nav" aria-label={t("aria.desktopAdmin")}>
           {adminLinks.map((link) => (
             <NavLink
               key={link.label}
@@ -181,7 +188,7 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
               onLogout();
             }}
           >
-            Log Out
+            {t("auth.logout")}
           </button>
         </div>
       </aside>
@@ -189,8 +196,24 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
       <div className={`drawer-backdrop ${open ? "open" : ""}`} onClick={closeDrawer} />
 
       <aside className={`app-drawer ${open ? "open" : ""}`}>
+        
         <div className="drawer-section">
-          <nav className="drawer-nav" aria-label="Mobile primary">
+          <div className="app-brand-row">
+            <NavLink to="/" className="app-brand" onClick={closePanels}>
+              <img
+                className="app-brand-logo"
+                src={leagueLogo}
+                alt={t("common.leagueLogoAlt")}
+              />
+              <div className="app-brand-copy">
+                <span className="app-brand-title">{leagueProfile.name}</span>
+              </div>
+            </NavLink>
+          </div>        
+        </div>
+
+        <div className="drawer-section">
+          <nav className="drawer-nav" aria-label={t("aria.mobilePrimary")}>
             {publicLinks.map((link) => (
               <NavLink
                 key={link.to}
@@ -207,8 +230,8 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
 
         {isAdmin && (
           <div className="drawer-section">
-            <p className="drawer-title">Commissioner tools</p>
-            <nav className="drawer-nav" aria-label="Mobile admin">
+            <p className="drawer-title">{t("admin.commissionerTools")}</p>
+            <nav className="drawer-nav" aria-label={t("aria.mobileAdmin")}>
               {adminLinks.map((link) => (
                 <NavLink
                   key={link.label}
@@ -223,8 +246,15 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
           </div>
         )}
 
+        <div className="drawer-divider" aria-hidden="true" />
+
         <div className="drawer-section">
-          <div className="drawer-socials" aria-label="Mobile social media">
+          <p className="drawer-title">{t("language.switcherLabel")}</p>
+          <LanguageToggle />
+        </div>
+        
+        <div className="drawer-section">
+          <div className="drawer-socials" aria-label={t("aria.mobileSocialMedia")}>
             {leagueProfile.socials.map((social) => (
               <a
                 key={social.label}
@@ -249,7 +279,7 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
                 onLogout();
               }}
             >
-              Log Out
+              {t("auth.logout")}
             </button>
           </div>
         )}
@@ -264,21 +294,21 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
       <footer className="app-footer">
         <div className="app-footer-inner">
           <div className="footer-block footer-about">
-            <p className="footer-label">About</p>
+            <p className="footer-label">{t("footer.about")}</p>
             <p className="footer-heading">{leagueProfile.shortName}</p>
-            <p className="footer-copy">{leagueProfile.about}</p>
+            <p className="footer-copy">{t("footer.aboutText")}</p>
           </div>
 
           <div className="footer-block footer-contact">
-            <p className="footer-label">Contact</p>
+            <p className="footer-label">{t("footer.contact")}</p>
             <a className="footer-link" href={`mailto:${leagueProfile.email}`}>
               {leagueProfile.email}
             </a>
-            <p className="footer-copy">Schedule, standings, rosters, and league announcements in one place.</p>
+            <p className="footer-copy">{t("footer.portalCopy")}</p>
           </div>
 
           <div className="footer-block footer-social">
-            <p className="footer-label">Follow</p>
+            <p className="footer-label">{t("footer.follow")}</p>
             <div className="footer-socials">
               {leagueProfile.socials.map((social) => (
                 <a
@@ -296,20 +326,20 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
           </div>
 
           <div className="footer-block footer-admin">
-            <p className="footer-label">Admin</p>
+            <p className="footer-label">{t("footer.admin")}</p>
             {authed ? (
               <>
                 <button className="footer-admin-link" type="button" onClick={onLogout}>
-                  Log Out
+                  {t("auth.logout")}
                 </button>
-                <p className="footer-copy">Commissioner access is intentionally kept low-profile.</p>
+                <p className="footer-copy">{t("footer.adminCopyAuthed")}</p>
               </>
             ) : (
               <>
                 <NavLink to="/login" className="footer-admin-link" onClick={closePanels}>
-                  Admin Login
+                  {t("auth.login")}
                 </NavLink>
-                <p className="footer-copy">Commissioner tools and posting access.</p>
+                <p className="footer-copy">{t("footer.adminCopyGuest")}</p>
               </>
             )}
           </div>

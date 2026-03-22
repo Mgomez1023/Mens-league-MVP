@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ApiError,
   AuthError,
@@ -46,14 +47,6 @@ type GamesPageProps = {
   onAuthError: () => void;
 };
 
-const statusOptions = [
-  { value: "SCHEDULED", label: "Scheduled" },
-  { value: "IN_PROGRESS", label: "In progress" },
-  { value: "FINAL", label: "Final" },
-  { value: "POSTPONED", label: "Postponed" },
-  { value: "CANCELLED", label: "Cancelled" },
-];
-
 const emptyForm = {
   date: "",
   time: "",
@@ -66,6 +59,7 @@ const emptyForm = {
 };
 
 export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPageProps) {
+  const { t } = useTranslation();
   const [teams, setTeams] = useState<Team[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +87,14 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
   const [editData, setEditData] = useState(emptyForm);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const browseScheduleRef = useRef<HTMLDivElement | null>(null);
+
+  const statusOptions = [
+    { value: "SCHEDULED", label: t("games.status.scheduled") },
+    { value: "IN_PROGRESS", label: t("games.status.inProgress") },
+    { value: "FINAL", label: t("games.status.final") },
+    { value: "POSTPONED", label: t("games.status.postponed") },
+    { value: "CANCELLED", label: t("games.status.cancelled") },
+  ];
 
   useEffect(() => {
     let active = true;
@@ -131,12 +133,12 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         const cached = getCachedTeams();
         if (cached && cached.length > 0) {
           setTeams(cached);
-          setNotice("Showing cached team data.");
+          setNotice(t("games.cachedTeamData"));
         } else {
-          setError("Teams data is temporarily unavailable.");
+          setError(t("games.teamDataTemporaryUnavailable"));
         }
       } else {
-        setError("Some team data could not be loaded.");
+        setError(t("games.partialTeamData"));
       }
 
       if (gamesResult.status === "fulfilled") {
@@ -150,9 +152,9 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         const cached = getCachedGames();
         if (cached && cached.length > 0) {
           setGames(cached);
-          setNotice("Showing cached schedule data.");
+          setNotice(t("games.cachedScheduleData"));
         } else {
-          setError("Games are temporarily unavailable.");
+          setError(t("games.temporaryUnavailable"));
         }
       } else if (
         gamesResult.status === "rejected" &&
@@ -162,12 +164,12 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         const cached = getCachedGames();
         if (cached && cached.length > 0) {
           setGames(cached);
-          setNotice("Showing cached schedule data.");
+          setNotice(t("games.cachedScheduleData"));
         } else {
           setEndpointMissing(true);
         }
       } else {
-        setError("Unable to load games right now.");
+        setError(t("games.loadError"));
       }
 
       setLoading(false);
@@ -177,7 +179,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
     return () => {
       active = false;
     };
-  }, [authed, isAdmin, onAuthError]);
+  }, [authed, isAdmin, onAuthError, t]);
 
   const teamMap = useMemo(() => buildTeamMap(teams), [teams]);
 
@@ -238,9 +240,9 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
     const home = teamMap[game.home_team_id];
 
     return {
-      awayTeamName: away?.name ?? `Team ${game.away_team_id}`,
+      awayTeamName: away?.name ?? t("common.teamFallback", { id: game.away_team_id }),
       awayTeamLogoSrc: away?.logo_url ? resolveApiUrl(away.logo_url) : null,
-      homeTeamName: home?.name ?? `Team ${game.home_team_id}`,
+      homeTeamName: home?.name ?? t("common.teamFallback", { id: game.home_team_id }),
       homeTeamLogoSrc: home?.logo_url ? resolveApiUrl(home.logo_url) : null,
     };
   };
@@ -278,12 +280,12 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
     setNotice(null);
 
     if (!formData.date || !formData.home_team_id || !formData.away_team_id) {
-      setFormError("Date, home team, and away team are required.");
+      setFormError(t("games.requiredError"));
       return;
     }
 
     if (formData.home_team_id === formData.away_team_id) {
-      setFormError("Home and away teams must be different.");
+      setFormError(t("games.sameTeamsError"));
       return;
     }
 
@@ -302,21 +304,21 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
       setGames((prev) => [...prev, created]);
       setFormData(emptyForm);
       setFormOpen(false);
-      setNotice("Game added to the schedule.");
+      setNotice(t("games.gameAdded"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setFormError("Admin access required.");
+        setFormError(t("auth.adminAccessRequired"));
         return;
       }
       if (err instanceof ApiError && err.detail) {
         setFormError(err.detail);
         return;
       }
-      setFormError("Unable to add game right now.");
+      setFormError(t("games.addError"));
     } finally {
       setSaving(false);
     }
@@ -356,52 +358,52 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
       });
       setGames((prev) => prev.map((game) => (game.id === updated.id ? updated : game)));
       setEditingGame(null);
-      setNotice("Game updated.");
+      setNotice(t("games.gameUpdated"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setEditError("Admin access required.");
+        setEditError(t("auth.adminAccessRequired"));
         return;
       }
       if (err instanceof ApiError && err.detail) {
         setEditError(err.detail);
         return;
       }
-      setEditError("Unable to update game right now.");
+      setEditError(t("games.updateError"));
     } finally {
       setEditSaving(false);
     }
   };
 
   const handleDeleteGame = async (gameId: number) => {
-    if (!window.confirm("Delete this game?")) return;
+    if (!window.confirm(t("games.deleteConfirm"))) return;
     setDeletingId(gameId);
     setError(null);
     setNotice(null);
     try {
       await deleteGame(gameId);
       setGames((prev) => prev.filter((game) => game.id !== gameId));
-      setNotice("Game removed from the schedule.");
+      setNotice(t("games.gameRemoved"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setError("Admin access required.");
+        setError(t("auth.adminAccessRequired"));
         return;
       }
-      setError("Unable to delete game right now.");
+      setError(t("games.deleteError"));
     } finally {
       setDeletingId(null);
     }
   };
 
   const handleClearGames = async () => {
-    const confirmed = window.confirm("This will delete all games. Are you sure?");
+    const confirmed = window.confirm(t("games.clearAllConfirm"));
     if (!confirmed) return;
     setDeletingId(-1);
     setError(null);
@@ -409,17 +411,17 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
     try {
       await clearGames();
       setGames([]);
-      setNotice("All games cleared.");
+      setNotice(t("games.allGamesCleared"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setError("Admin access required.");
+        setError(t("auth.adminAccessRequired"));
         return;
       }
-      setError("Unable to clear games right now.");
+      setError(t("games.clearError"));
     } finally {
       setDeletingId(null);
     }
@@ -437,17 +439,17 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
       const [freshGames, freshTeams] = await Promise.all([fetchGames(), fetchTeams()]);
       setGames(freshGames);
       setTeams(freshTeams);
-      setNotice("Games CSV processed.");
+      setNotice(t("games.csvProcessed"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
         return;
       }
       if (err instanceof PermissionError) {
-        setImportError("Admin access required.");
+        setImportError(t("auth.adminAccessRequired"));
         return;
       }
-      setImportError("Unable to import games.");
+      setImportError(t("games.importError"));
     } finally {
       setImporting(false);
     }
@@ -479,14 +481,14 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
     <section className="page-stack">
       <PageHeader
         eyebrow=""
-        title="Games and schedule"
+        title={t("games.title")}
         description=""
         titleAction={
           <button
             className="schedule-browser-icon-button"
             type="button"
             onClick={handleBrowseScheduleToggle}
-            aria-label={browseScheduleOpen ? "Hide schedule browser" : "Browse schedule"}
+            aria-label={browseScheduleOpen ? t("games.hideScheduleBrowser") : t("games.browseSchedule")}
             aria-pressed={browseScheduleOpen}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -500,21 +502,16 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
               />
             </svg>
             <span className="visually-hidden">
-              {browseScheduleOpen ? "Hide schedule browser" : "Browse schedule"}
+              {browseScheduleOpen ? t("games.hideScheduleBrowser") : t("games.browseSchedule")}
             </span>
-          </button>
-        }
-        actions={
-          <></>
+            
+          </button> 
         }
       />
 
       {isAdmin && (
         <SurfaceCard className="admin-ops-card">
-          <SectionHeader
-            title="Schedule operations"
-            description=""
-          />
+          <SectionHeader title={t("games.scheduleOperations")} description="" />
           <div className="admin-ops-actions">
             <button
               className="button button-danger"
@@ -522,41 +519,38 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
               onClick={handleClearGames}
               disabled={deletingId === -1}
             >
-              {deletingId === -1 ? "Clearing..." : "Clear all games"}
+              {deletingId === -1 ? t("games.clearing") : t("games.clearAll")}
             </button>
-            {isAdmin ? (
-              <>
-                <button
-                  className="button button-primary"
-                  type="button"
-                  onClick={() => setFormOpen((prev) => !prev)}
-                >
-                  {formOpen ? "Close form" : "Add game"}
-                </button>
-                <label className="button button-secondary file-button-inline">
-                  {importing ? "Importing..." : "Import CSV"}
-                  <input
-                    key={fileInputKey}
-                    type="file"
-                    accept=".csv,text/csv"
-                    disabled={importing}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) handleImportGames(file);
-                    }}
-                  />
-                </label>
-              </>
-            ) : null}
-
-
-
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => setFormOpen((prev) => !prev)}
+            >
+              {formOpen ? t("common.closeForm") : t("buttons.addGame")}
+            </button>
+            <label className="button button-secondary file-button-inline">
+              {importing ? `${t("buttons.importCsv")}...` : t("buttons.importCsv")}
+              <input
+                key={fileInputKey}
+                type="file"
+                accept=".csv,text/csv"
+                disabled={importing}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) handleImportGames(file);
+                }}
+              />
+            </label>
           </div>
           {importError && <Notice variant="error">{importError}</Notice>}
           {importResult && (
             <Notice variant="success">
-              Created {importResult.created}, Updated {importResult.updated}, Skipped{" "}
-              {importResult.skipped}, Errors {importResult.errors.length}
+              {t("games.importSummary", {
+                created: importResult.created,
+                updated: importResult.updated,
+                skipped: importResult.skipped,
+                errors: importResult.errors.length,
+              })}
             </Notice>
           )}
         </SurfaceCard>
@@ -566,30 +560,30 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         <div ref={browseScheduleRef}>
           <SurfaceCard>
             <SectionHeader
-              title="Browse schedule"
-              description="Filter the calendar by date window, team, or status."
+              title={t("games.browseSchedule")}
+              description={t("games.browseDescription")}
             />
             <div className="filter-grid">
               <label className="field">
-                <span>Window</span>
+                <span>{t("common.window")}</span>
                 <select
                   value={filters.window}
                   onChange={(event) => handleFilterChange("window", event.target.value)}
                 >
-                  <option value="all">All dates</option>
-                  <option value="today">Today</option>
-                  <option value="next7">Next 7 days</option>
-                  <option value="upcoming">Upcoming</option>
-                  <option value="final">Final only</option>
+                  <option value="all">{t("games.filters.allDates")}</option>
+                  <option value="today">{t("games.filters.today")}</option>
+                  <option value="next7">{t("games.filters.next7")}</option>
+                  <option value="upcoming">{t("games.filters.upcoming")}</option>
+                  <option value="final">{t("games.filters.finalOnly")}</option>
                 </select>
               </label>
               <label className="field">
-                <span>Team</span>
+                <span>{t("common.team")}</span>
                 <select
                   value={filters.teamId}
                   onChange={(event) => handleFilterChange("teamId", event.target.value)}
                 >
-                  <option value="all">All teams</option>
+                  <option value="all">{t("games.filters.allTeams")}</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
@@ -598,12 +592,12 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </select>
               </label>
               <label className="field">
-                <span>Status</span>
+                <span>{t("common.status")}</span>
                 <select
                   value={filters.status}
                   onChange={(event) => handleFilterChange("status", event.target.value)}
                 >
-                  <option value="all">All statuses</option>
+                  <option value="all">{t("games.filters.allStatuses")}</option>
                   {statusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -616,9 +610,9 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         </div>
       )}
 
-      {loading && <LoadingState label="Loading schedule..." />}
+      {loading && <LoadingState label={t("games.loading")} />}
       {!loading && endpointMissing && (
-        <Notice variant="warning">Games endpoint not available yet.</Notice>
+        <Notice variant="warning">{t("games.endpointMissing")}</Notice>
       )}
       {!loading && notice && <Notice variant="success">{notice}</Notice>}
       {!loading && error && <Notice variant="error">{error}</Notice>}
@@ -628,15 +622,18 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
           {groupedGames.length === 0 ? (
             <SurfaceCard>
               <EmptyState
-                title="No games match the current filters"
-                description="Try widening the date window or clearing team and status filters."
+                title={t("games.emptyTitle")}
+                description={t("games.emptyDescription")}
               />
             </SurfaceCard>
           ) : (
             <div className="schedule-groups">
               {groupedGames.map((group) => (
                 <SurfaceCard key={group.key}>
-                  <SectionHeader title={group.label} description={`${group.games.length} game${group.games.length === 1 ? "" : "s"}`} />
+                  <SectionHeader
+                    title={group.label}
+                    description={t("games.groupCount", { count: group.games.length })}
+                  />
                   <div className="schedule-list schedule-list-desktop">
                     {group.games.map((game) => {
                       const {
@@ -664,7 +661,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                                     type="button"
                                     onClick={() => handleEditStart(game)}
                                   >
-                                    Edit
+                                    {t("buttons.edit")}
                                   </button>
                                   <button
                                     className="button button-danger button-small"
@@ -672,7 +669,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                                     onClick={() => handleDeleteGame(game.id)}
                                     disabled={deletingId === game.id}
                                   >
-                                    {deletingId === game.id ? "Deleting..." : "Delete"}
+                                    {deletingId === game.id ? t("common.deleteInProgress") : t("buttons.delete")}
                                   </button>
                                 </div>
                               ) : null
@@ -681,10 +678,10 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                           <button
                             className="schedule-card-overlay"
                             type="button"
-                            aria-label={`View details for ${awayTeamName} versus ${homeTeamName}`}
+                            aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
                             onClick={() => handleOpenGameDetails(game.id)}
                           >
-                            <span className="visually-hidden">View details</span>
+                            <span className="visually-hidden">{t("buttons.viewDetails")}</span>
                           </button>
                         </div>
                       );
@@ -700,7 +697,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                         homeTeamLogoSrc,
                       } = getGameDisplayData(game);
                       const status = getGameStatusMeta(game.status);
-                      const isFinal = isFinalGame(game.status);
+                      const finalGame = isFinalGame(game.status);
                       const score = getGameScore(game);
                       const location = getGameShortLocation(game);
 
@@ -727,7 +724,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                                     />
                                     <span className="schedule-mobile-row-team-name">{awayTeamName}</span>
                                   </div>
-                                  {isFinal && score ? (
+                                  {finalGame && score ? (
                                     <span className="schedule-mobile-row-team-score">{score.away}</span>
                                   ) : null}
                                 </div>
@@ -741,29 +738,28 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                                     />
                                     <span className="schedule-mobile-row-team-name">{homeTeamName}</span>
                                   </div>
-                                  {isFinal && score ? (
+                                  {finalGame && score ? (
                                     <span className="schedule-mobile-row-team-score">{score.home}</span>
                                   ) : null}
                                 </div>
                               </div>
 
-                              <div className="schedule-mobile-row-summary">
-                              </div>
+                              <div className="schedule-mobile-row-summary" />
                             </div>
 
                             <div className="schedule-mobile-row-footer">
                               <span className="schedule-mobile-row-detail-button" aria-hidden="true">
-                                Details
+                                {t("games.detailsLink")}
                               </span>
                             </div>
                           </article>
                           <button
                             className="schedule-mobile-row-overlay"
                             type="button"
-                            aria-label={`View details for ${awayTeamName} versus ${homeTeamName}`}
+                            aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
                             onClick={() => handleOpenGameDetails(game.id)}
                           >
-                            <span className="visually-hidden">View details</span>
+                            <span className="visually-hidden">{t("buttons.viewDetails")}</span>
                           </button>
                         </div>
                       );
@@ -780,8 +776,8 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <SurfaceCard className="modal-card">
             <SectionHeader
-              title="Add game"
-              description="Create a matchup with teams, date, field, status, and optional score."
+              title={t("games.modal.addTitle")}
+              description={t("games.modal.addDescription")}
               action={
                 <button
                   className="button button-secondary button-small"
@@ -791,13 +787,13 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                     setFormError(null);
                   }}
                 >
-                  Close
+                  {t("buttons.close")}
                 </button>
               }
             />
             <form className="form-grid" onSubmit={handleCreateGame}>
               <label className="field">
-                <span>Date</span>
+                <span>{t("common.date")}</span>
                 <input
                   type="date"
                   value={formData.date}
@@ -805,7 +801,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 />
               </label>
               <label className="field">
-                <span>Time</span>
+                <span>{t("common.time")}</span>
                 <input
                   type="time"
                   value={formData.time}
@@ -813,20 +809,20 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 />
               </label>
               <label className="field">
-                <span>Field</span>
+                <span>{t("common.field")}</span>
                 <input
                   value={formData.field}
                   onChange={(event) => handleFormChange("field", event.target.value)}
-                  placeholder="Field 1"
+                  placeholder={t("games.modal.fieldPlaceholder")}
                 />
               </label>
               <label className="field">
-                <span>Away team</span>
+                <span>{t("common.awayTeam")}</span>
                 <select
                   value={formData.away_team_id}
                   onChange={(event) => handleFormChange("away_team_id", event.target.value)}
                 >
-                  <option value="">Select</option>
+                  <option value="">{t("common.select")}</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
@@ -835,12 +831,12 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </select>
               </label>
               <label className="field">
-                <span>Home team</span>
+                <span>{t("common.homeTeam")}</span>
                 <select
                   value={formData.home_team_id}
                   onChange={(event) => handleFormChange("home_team_id", event.target.value)}
                 >
-                  <option value="">Select</option>
+                  <option value="">{t("common.select")}</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
@@ -849,7 +845,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </select>
               </label>
               <label className="field">
-                <span>Status</span>
+                <span>{t("common.status")}</span>
                 <select
                   value={formData.status}
                   onChange={(event) => handleFormChange("status", event.target.value)}
@@ -862,7 +858,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </select>
               </label>
               <label className="field">
-                <span>Away score</span>
+                <span>{t("common.awayScore")}</span>
                 <input
                   type="number"
                   min="0"
@@ -871,7 +867,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 />
               </label>
               <label className="field">
-                <span>Home score</span>
+                <span>{t("common.homeScore")}</span>
                 <input
                   type="number"
                   min="0"
@@ -881,7 +877,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
               </label>
               <div className="form-actions">
                 <button className="button button-primary" type="submit" disabled={saving}>
-                  {saving ? "Saving..." : "Save game"}
+                  {saving ? t("common.saveInProgress") : t("games.modal.saveGame")}
                 </button>
                 <button
                   className="button button-secondary"
@@ -891,7 +887,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                     setFormError(null);
                   }}
                 >
-                  Cancel
+                  {t("buttons.cancel")}
                 </button>
               </div>
             </form>
@@ -904,8 +900,8 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <SurfaceCard className="modal-card">
             <SectionHeader
-              title="Edit game"
-              description="Adjust matchup details, update status, or finalize a score."
+              title={t("games.modal.editTitle")}
+              description={t("games.modal.editDescription")}
               action={
                 <button
                   className="button button-secondary button-small"
@@ -915,13 +911,13 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                     setEditError(null);
                   }}
                 >
-                  Close
+                  {t("buttons.close")}
                 </button>
               }
             />
             <form className="form-grid" onSubmit={handleEditSave}>
               <label className="field">
-                <span>Date</span>
+                <span>{t("common.date")}</span>
                 <input
                   type="date"
                   value={editData.date}
@@ -929,7 +925,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 />
               </label>
               <label className="field">
-                <span>Time</span>
+                <span>{t("common.time")}</span>
                 <input
                   type="time"
                   value={editData.time}
@@ -937,14 +933,14 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 />
               </label>
               <label className="field">
-                <span>Field</span>
+                <span>{t("common.field")}</span>
                 <input
                   value={editData.field}
                   onChange={(event) => handleEditChange("field", event.target.value)}
                 />
               </label>
               <label className="field">
-                <span>Away team</span>
+                <span>{t("common.awayTeam")}</span>
                 <select
                   value={editData.away_team_id}
                   onChange={(event) => handleEditChange("away_team_id", event.target.value)}
@@ -957,7 +953,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </select>
               </label>
               <label className="field">
-                <span>Home team</span>
+                <span>{t("common.homeTeam")}</span>
                 <select
                   value={editData.home_team_id}
                   onChange={(event) => handleEditChange("home_team_id", event.target.value)}
@@ -970,7 +966,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </select>
               </label>
               <label className="field">
-                <span>Status</span>
+                <span>{t("common.status")}</span>
                 <select
                   value={editData.status}
                   onChange={(event) => handleEditChange("status", event.target.value)}
@@ -983,7 +979,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </select>
               </label>
               <label className="field">
-                <span>Away score</span>
+                <span>{t("common.awayScore")}</span>
                 <input
                   type="number"
                   min="0"
@@ -992,7 +988,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 />
               </label>
               <label className="field">
-                <span>Home score</span>
+                <span>{t("common.homeScore")}</span>
                 <input
                   type="number"
                   min="0"
@@ -1002,7 +998,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
               </label>
               <div className="form-actions">
                 <button className="button button-primary" type="submit" disabled={editSaving}>
-                  {editSaving ? "Saving..." : "Update game"}
+                  {editSaving ? t("common.saveInProgress") : t("games.modal.updateGame")}
                 </button>
                 <button
                   className="button button-secondary"
@@ -1012,7 +1008,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                     setEditError(null);
                   }}
                 >
-                  Cancel
+                  {t("buttons.cancel")}
                 </button>
               </div>
             </form>
@@ -1048,7 +1044,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 type="button"
                 onClick={handleEditFromDetails}
               >
-                Edit game
+                {t("games.modal.editGame")}
               </button>
               <button
                 className="button button-danger"
@@ -1058,7 +1054,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 }}
                 disabled={deletingId === selectedGame.id}
               >
-                {deletingId === selectedGame.id ? "Deleting..." : "Delete game"}
+                {deletingId === selectedGame.id ? t("common.deleteInProgress") : t("games.modal.deleteGame")}
               </button>
             </>
           ) : null
