@@ -328,6 +328,8 @@
     "saveError": "Unable to save player right now.",
     "deleteError": "Unable to delete player right now.",
     "firstLastRequired": "First and last name are required.",
+    "deleteTitle": "Remove player",
+    "deleteDescription": "This will remove the player from the active roster.",
     "deleteConfirm": "Delete this player?",
     "teamProfile": "Team profile",
     "homeField": "Home field: {{field}}",

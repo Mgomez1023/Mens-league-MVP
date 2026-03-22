@@ -71,6 +71,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [playerDeleteTarget, setPlayerDeleteTarget] = useState<Player | null>(null);
   const [importing, setImporting] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -267,8 +268,10 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
     }
   };
 
-  const handleDeletePlayer = async (playerId: number) => {
-    if (!window.confirm(t("roster.deleteConfirm"))) return;
+  const handleDeletePlayer = async () => {
+    const playerId = playerDeleteTarget?.id;
+    if (playerId == null) return;
+
     setDeletingId(playerId);
     setError(null);
     setNotice(null);
@@ -276,6 +279,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
       await deletePlayer(playerId);
       setPlayers((prev) => prev.filter((player) => player.id !== playerId));
       setNotice(t("roster.playerRemoved"));
+      setPlayerDeleteTarget(null);
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
@@ -521,7 +525,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                                   </button>
                                   <button
                                     className="button button-danger button-small"
-                                    onClick={() => handleDeletePlayer(player.id)}
+                                    onClick={() => setPlayerDeleteTarget(player)}
                                     disabled={deletingId === player.id}
                                   >
                                     {deletingId === player.id ? t("common.deleteInProgress") : t("buttons.delete")}
@@ -688,6 +692,41 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
               </div>
             </form>
             {formError && <Notice variant="error">{formError}</Notice>}
+          </SurfaceCard>
+        </div>
+      )}
+
+      {isAdmin && playerDeleteTarget && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <SurfaceCard className="modal-card">
+            <SectionHeader
+              title={t("roster.deleteTitle")}
+              description={t("roster.deleteDescription")}
+            />
+            <p className="confirmation-copy">
+              <strong>
+                {playerDeleteTarget.first_name} {playerDeleteTarget.last_name}
+              </strong>
+              <span>{t("roster.deleteConfirm")}</span>
+            </p>
+            <div className="form-actions">
+              <button
+                className="button button-danger"
+                type="button"
+                onClick={() => void handleDeletePlayer()}
+                disabled={deletingId === playerDeleteTarget.id}
+              >
+                {deletingId === playerDeleteTarget.id ? t("common.deleteInProgress") : t("buttons.delete")}
+              </button>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => setPlayerDeleteTarget(null)}
+                disabled={deletingId === playerDeleteTarget.id}
+              >
+                {t("buttons.cancel")}
+              </button>
+            </div>
           </SurfaceCard>
         </div>
       )}

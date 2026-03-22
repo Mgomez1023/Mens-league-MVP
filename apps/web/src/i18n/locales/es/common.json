@@ -328,6 +328,8 @@
     "saveError": "No se pudo guardar el jugador en este momento.",
     "deleteError": "No se pudo eliminar el jugador en este momento.",
     "firstLastRequired": "El nombre y apellido son obligatorios.",
+    "deleteTitle": "Eliminar jugador",
+    "deleteDescription": "Esto eliminará al jugador del roster activo.",
     "deleteConfirm": "¿Eliminar este jugador?",
     "teamProfile": "Perfil del equipo",
     "homeField": "Campo local: {{field}}",

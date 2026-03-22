@@ -163,6 +163,29 @@ def create_post(
     return serialize_post(post)
 
 
+@router.delete("/posts/{post_id}", status_code=204)
+def delete_post(
+    post_id: int,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    post = db.get(Post, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    image_path = post_image_path(post_id)
+    db.delete(post)
+    db.commit()
+
+    if image_path.exists():
+        try:
+            image_path.unlink()
+        except Exception:
+            pass
+
+    return Response(status_code=204)
+
+
 @router.get("/teams/{team_id}/players")
 def list_team_players(team_id: int, db: Session = Depends(get_db)):
     team = db.get(Team, team_id)

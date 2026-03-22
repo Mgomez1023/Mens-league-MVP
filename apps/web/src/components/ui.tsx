@@ -110,9 +110,6 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className={cx("empty-state", compact && "empty-state-compact")}>
-      <div className="empty-state-illustration" aria-hidden="true">
-        9
-      </div>
       <div className="empty-state-copy">
         <h3>{title}</h3>
         {description && <p>{description}</p>}

@@ -2147,6 +2147,19 @@ body {
   color: var(--color-danger);
 }
 
+.confirmation-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  color: #203041;
+}
+
+.confirmation-copy strong {
+  font-size: 1.05rem;
+  color: #10161d;
+}
+
 .player-name-cell strong {
   display: block;
 }
@@ -3375,7 +3388,7 @@ body {
   margin: 0;
   color: #ffffff;
   font-family: var(--font-body);
-  font-size: clamp(1.35rem, 1.25rem + 1.2vw, 2.6rem);
+  font-size: clamp(1.45rem, 1.32rem + 1.35vw, 2.8rem);
   font-weight: 800;
   letter-spacing: 0.12em;
   line-height: 0.95;
@@ -3406,12 +3419,12 @@ body {
 }
 
 .home-hero-word-benito {
-  font-size: clamp(4.6rem, 9vw, 8.7rem);
+  font-size: clamp(4.9rem, 9.5vw, 9.2rem);
 }
 
 .home-hero-word-juarez {
   transform: translateY(0.04em);
-  font-size: clamp(3.7rem, 7vw, 6.4rem);
+  font-size: clamp(3.95rem, 7.4vw, 6.8rem);
 }
 
 .home-hero-word-white {
@@ -3457,7 +3470,7 @@ body {
 .home-hero-meta-item,
 .home-hero-meta-badge {
   font-family: var(--font-body);
-  font-size: clamp(0.95rem, 0.68rem + 0.85vw, 1.7rem);
+  font-size: clamp(1.02rem, 0.74rem + 0.92vw, 1.82rem);
   font-weight: 800;
   letter-spacing: 0.05em;
   line-height: 1;
@@ -3570,7 +3583,7 @@ body {
   }
 
   .home-hero-kicker {
-    font-size: clamp(0.92rem, 1.2vw + 0.75rem, 1.25rem);
+    font-size: clamp(0.98rem, 1.4vw + 0.78rem, 1.35rem);
     letter-spacing: 0.08em;
   }
 
@@ -3579,12 +3592,12 @@ body {
   }
 
   .home-hero-word-benito {
-    font-size: clamp(2.65rem, 10.5vw, 4.5rem);
+    font-size: clamp(2.85rem, 11.2vw, 4.8rem);
   }
 
   .home-hero-word-juarez {
     transform: none;
-    font-size: clamp(2.35rem, 9vw, 3.9rem);
+    font-size: clamp(2.5rem, 9.5vw, 4.15rem);
   }
 
   .home-hero-word-outline,
@@ -3613,7 +3626,7 @@ body {
 
   .home-hero-meta-item,
   .home-hero-meta-badge {
-    font-size: clamp(0.7rem, 1.7vw + 0.42rem, 0.95rem);
+    font-size: clamp(0.74rem, 1.85vw + 0.44rem, 1.02rem);
     letter-spacing: 0.04em;
   }
 
@@ -3998,63 +4011,80 @@ body {
 }
 
 @media (max-width: 640px) {
-  .roster-table {
-    border-spacing: 0;
+  .roster-table-wrap {
+    overflow-x: auto;
+    padding-top: var(--space-2);
   }
 
-  .roster-row {
+  .roster-table thead {
+    display: table-header-group;
+  }
+
+  .roster-table {
+    display: table;
+    width: max(100%, 35rem);
+    border-spacing: 0 0.55rem;
+  }
+
+  .roster-table tbody {
+    display: table-row-group;
+  }
+
+  .roster-table tr {
+    display: table-row;
     padding: 0;
-    margin-bottom: 0.7rem;
-    border: 1px solid rgba(99, 173, 221, 0.22);
-    border-radius: 18px;
-    overflow: hidden;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 247, 252, 0.98));
-    box-shadow: 0 12px 24px rgba(12, 24, 36, 0.08);
+    border: 0;
+  }
+
+  .roster-table td,
+  .roster-table th {
+    display: table-cell;
+    width: auto;
+  }
+
+  .roster-table thead th {
+    padding: 0 0.75rem 0.28rem;
+    font-size: 0.74rem;
   }
 
   .roster-row td {
-    padding: 0.65rem 0.9rem;
-    background: transparent;
-    border: 0;
-    box-shadow: none;
-    text-align: right;
+    padding: 0.72rem 0.75rem;
+    text-align: left;
     transform: none;
+  }
+
+  .roster-row td::before {
+    content: none;
   }
 
   .roster-row:hover td,
   .roster-row:focus-within td {
     transform: none;
-    border-color: transparent;
-    box-shadow: none;
-  }
-
-  .roster-row td:first-child,
-  .roster-row td:last-child {
-    border-radius: 0;
-  }
-
-  .roster-row td::before {
-    color: #607487;
-  }
-
-  .roster-cell-player,
-  .roster-cell-actions {
-    text-align: left;
-  }
-
-  .roster-cell-player::before,
-  .roster-cell-actions::before {
-    float: none;
-    display: block;
-    margin-bottom: var(--space-2);
   }
 
   .roster-cell-number {
-    font-size: 1.15rem;
-    text-align: right;
+    width: 3.6rem;
+    font-size: 1.1rem;
+    text-align: center;
+  }
+
+  .roster-cell-player {
+    min-width: 12rem;
   }
 
   .roster-cell-stat {
-    width: auto;
+    width: 4.15rem;
+  }
+
+  .roster-cell-actions {
+    width: 9.5rem;
+  }
+
+  .roster-cell-actions .table-actions {
+    flex-wrap: nowrap;
+  }
+
+  .roster-cell-actions .button {
+    white-space: nowrap;
   }
 }
