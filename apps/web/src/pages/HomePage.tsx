@@ -366,10 +366,7 @@ export default function HomePage() {
               </div>
             </SurfaceCard>
 
-            <SurfaceCard tone="subtle">
-              <SectionHeader title={t("home.seasonNote")} />
-              <p className="season-note">{t("home.seasonNoteText")}</p>
-            </SurfaceCard>
+
           </div>
         </div>
       )}
