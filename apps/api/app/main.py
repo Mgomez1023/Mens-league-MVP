@@ -21,15 +21,35 @@ app = FastAPI(title="Men's League MVP API")
 Base.metadata.create_all(bind=engine)
 
 def ensure_player_columns():
-    if engine.dialect.name != "sqlite":
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns("players")}
+    statements: list[str] = []
+
+    if "number" not in columns:
+        statements.append("ALTER TABLE players ADD COLUMN number INTEGER")
+    if "position" not in columns:
+        statements.append("ALTER TABLE players ADD COLUMN position VARCHAR")
+    if "bats" not in columns:
+        statements.append("ALTER TABLE players ADD COLUMN bats VARCHAR")
+    if "throws" not in columns:
+        statements.append("ALTER TABLE players ADD COLUMN throws VARCHAR")
+    if "photo_image" not in columns:
+        if engine.dialect.name == "postgresql":
+            statements.append("ALTER TABLE players ADD COLUMN photo_image BYTEA")
+        else:
+            statements.append("ALTER TABLE players ADD COLUMN photo_image BLOB")
+    if "photo_updated_at" not in columns:
+        if engine.dialect.name == "postgresql":
+            statements.append("ALTER TABLE players ADD COLUMN photo_updated_at TIMESTAMP")
+        else:
+            statements.append("ALTER TABLE players ADD COLUMN photo_updated_at DATETIME")
+
+    if not statements:
         return
+
     with engine.begin() as conn:
-        result = conn.execute(text("PRAGMA table_info(players)"))
-        columns = {row[1] for row in result}
-        if "number" not in columns:
-            conn.execute(text("ALTER TABLE players ADD COLUMN number INTEGER"))
-        if "position" not in columns:
-            conn.execute(text("ALTER TABLE players ADD COLUMN position VARCHAR"))
+        for statement in statements:
+            conn.execute(text(statement))
         if "photo_image" not in columns:
             conn.execute(text("ALTER TABLE players ADD COLUMN photo_image BLOB"))
         if "photo_updated_at" not in columns:
