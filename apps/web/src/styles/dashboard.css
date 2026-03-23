@@ -490,7 +490,6 @@ body {
 }
 
 .page-header {
-  display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-5);
@@ -559,6 +558,10 @@ body {
 
 .page-header .inline-actions > * {
   flex: 1 1 0;
+}
+
+.roster-page-actions {
+  margin-top: var(--space-3);
 }
 
 .schedule-browser-icon-button {
@@ -895,8 +898,22 @@ body {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.game-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .player-form-field-wide {
   grid-column: span 2;
+}
+
+.game-form-grid .form-actions {
+  flex-wrap: wrap;
+}
+
+@media (min-width: 980px) {
+  .game-form-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .field {
@@ -2871,6 +2888,10 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .game-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .player-form-field-wide {
     grid-column: span 1;
   }
@@ -3531,7 +3552,7 @@ body {
 .surface-card .page-eyebrow,
 .standings-team span,
 .table-team-name {
-  color: #f7fbff;
+  color: #1b1b1b;
 }
 
 .surface-card .section-header p,

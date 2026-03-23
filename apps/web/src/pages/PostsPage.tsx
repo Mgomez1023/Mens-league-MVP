@@ -18,6 +18,7 @@ import {
   SectionHeader,
   SurfaceCard,
 } from "../components/ui";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { formatDateTime } from "../utils/league";
 
 type PostsPageProps = {
@@ -123,6 +124,8 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
   const remainingChars = 5000 - content.length;
+
+  useBodyScrollLock(composerOpen);
 
   const loadPosts = async () => {
     setError(null);

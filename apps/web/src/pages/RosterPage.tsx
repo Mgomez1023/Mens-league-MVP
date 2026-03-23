@@ -30,6 +30,7 @@ import {
   SurfaceCard,
   TeamAvatar,
 } from "../components/ui";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import {
   formatDate,
   formatTime,
@@ -95,6 +96,8 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
     errors: Array<{ row: number; message: string }>;
   } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useBodyScrollLock(modalOpen || !!playerDeleteTarget || !!selectedPlayer);
 
   useEffect(() => {
     let active = true;
@@ -414,11 +417,13 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         eyebrow={t("roster.eyebrow")}
         title={teamDisplayName}
         description={t("")}
+        titleAction={
+          <Link className="button button-secondary button-small page-title-action-compact" to="/teams">
+            {t("buttons.backToTeams")}
+          </Link>
+        }
         actions={
-          <div className="inline-actions">
-            <Link className="button button-secondary" to="/teams">
-              {t("buttons.backToTeams")}
-            </Link>
+          <div className="inline-actions roster-page-actions">
             {isAdmin && (
               <>
                 <button className="button button-primary" type="button" onClick={openAddModal}>
@@ -536,9 +541,9 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                           <th>#</th>
                           <th>{t("common.players")}</th>
                           <th>{t("common.position")}</th>
-                          <th>{t("common.gamesPlayed")}</th>
                           <th>{t("common.bats")}</th>
                           <th>{t("common.throws")}</th>
+                          <th>{t("common.gamesPlayed")}</th>
                           {isAdmin && <th>{t("common.actions")}</th>}
                         </tr>
                       </thead>
@@ -566,11 +571,11 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                               </div>
                             </td>
                             <td className="roster-cell-stat" data-label={t("common.position")}>{player.position ?? "-"}</td>
+                            <td className="roster-cell-stat" data-label={t("common.bats")}>{player.bats ?? "-"}</td>
+                            <td className="roster-cell-stat" data-label={t("common.throws")}>{player.throws ?? "-"}</td>
                             <td className="roster-cell-stat" data-label={t("common.gamesPlayed")}>
                               {player.games_played ?? 0}
                             </td>
-                            <td className="roster-cell-stat" data-label={t("common.bats")}>{player.bats ?? "-"}</td>
-                            <td className="roster-cell-stat" data-label={t("common.throws")}>{player.throws ?? "-"}</td>
                             {isAdmin && (
                               <td className="roster-cell-actions" data-label={t("common.actions")}>
                                 <div className="table-actions">

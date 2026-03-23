@@ -32,6 +32,7 @@ import {
   SurfaceCard,
   TeamAvatar,
 } from "../components/ui";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import {
   buildTeamMap,
   formatFullGameDate,
@@ -96,6 +97,8 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
   const [editData, setEditData] = useState(emptyForm);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const browseScheduleRef = useRef<HTMLDivElement | null>(null);
+
+  useBodyScrollLock(formOpen || !!editingGame || !!lineupGame);
 
   const statusOptions = [
     { value: "SCHEDULED", label: t("games.status.scheduled") },
@@ -881,7 +884,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
           <SurfaceCard className="modal-card">
             <SectionHeader
               title={t("games.modal.addTitle")}
-              description={t("games.modal.addDescription")}
+              description={t("")}
               action={
                 <button
                   className="button button-secondary button-small"
@@ -895,7 +898,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </button>
               }
             />
-            <form className="form-grid" onSubmit={handleCreateGame}>
+            <form className="form-grid game-form-grid" onSubmit={handleCreateGame}>
               <label className="field">
                 <span>{t("common.date")}</span>
                 <input
@@ -1019,7 +1022,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </button>
               }
             />
-            <form className="form-grid" onSubmit={handleEditSave}>
+            <form className="form-grid game-form-grid" onSubmit={handleEditSave}>
               <label className="field">
                 <span>{t("common.date")}</span>
                 <input

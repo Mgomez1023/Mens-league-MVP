@@ -55,8 +55,8 @@ export default function StandingsPage() {
         eyebrow={t("standings.eyebrow")}
         title={t("standings.title")}
         description=""
-        actions={
-          <Link className="button button-secondary standings-schedule-link" to="/games">
+        titleAction={
+          <Link className="button button-secondary button-small page-title-action-compact" to="/games">
             {t("standings.viewSchedule")}
           </Link>
         }

@@ -23,6 +23,7 @@ import {
   SurfaceCard,
   TeamAvatar,
 } from "../components/ui";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { getRecord, sortStandings } from "../utils/league";
 
 type TeamsPageProps = {
@@ -50,6 +51,8 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [formLogo, setFormLogo] = useState<File | null>(null);
+
+  useBodyScrollLock(formOpen);
 
   useEffect(() => {
     let active = true;
