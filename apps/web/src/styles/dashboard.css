@@ -408,6 +408,8 @@ body {
   width: min(320px, 88vw);
   height: 100vh;
   padding: var(--space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background:
     radial-gradient(circle at top right, rgba(181, 95, 67, 0.18), transparent 30%),
     linear-gradient(180deg, #18283d 0%, #0b121c 100%);
