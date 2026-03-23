@@ -13,7 +13,7 @@ from ..deps import get_db, get_current_admin
 from ..models import Game, Player, PlayerAppearance, Season, Team, User
 from ..schemas import EligibilityReportItem, GameLineupOut, GameLineupUpdate
 from ..standings import compute_team_records
-from ..storage import team_logo_url
+from ..storage import player_image_url, team_logo_url
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -70,6 +70,11 @@ def serialize_player(player: Player, games_played: int = 0):
         "position": player.position,
         "bats": player.bats,
         "throws": player.throws,
+        "image_url": player_image_url(
+            player.id,
+            has_db_image=player.photo_image is not None,
+            image_updated_at=player.photo_updated_at,
+        ),
         "games_played": games_played,
     }
 
@@ -636,6 +641,52 @@ def update_player(
     commit_or_raise(db, conflict_detail="Player already exists on this team")
     db.refresh(player)
     return serialize_player(player)
+
+
+@router.post("/players/{player_id}/image")
+def upload_player_image(
+    player_id: int,
+    file: UploadFile = File(...),
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    player = db.get(Player, player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Invalid image type")
+
+    try:
+        image = Image.open(file.file)
+        image = image.convert("RGB")
+        image = ImageOps.fit(image, (480, 600), Image.Resampling.LANCZOS)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Unable to process image") from exc
+
+    output = BytesIO()
+    try:
+        image.save(output, format="JPEG", quality=88)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Unable to save image") from exc
+
+    try:
+        player.photo_image = output.getvalue()
+        player.photo_updated_at = datetime.datetime.utcnow()
+        commit_or_raise(db)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Unable to save image") from exc
+
+    return {
+        "image_url": player_image_url(
+            player.id,
+            has_db_image=True,
+            image_updated_at=player.photo_updated_at,
+        )
+    }
 
 
 @router.delete("/players/{player_id}")

@@ -39,6 +39,8 @@ class Player(Base):
     position: Mapped[str | None] = mapped_column(String, nullable=True)
     bats: Mapped[str | None] = mapped_column(String, nullable=True)   # R/L/S
     throws: Mapped[str | None] = mapped_column(String, nullable=True) # R/L
+    photo_image: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    photo_updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     team: Mapped[Team] = relationship(back_populates="players")

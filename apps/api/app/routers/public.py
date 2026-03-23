@@ -14,7 +14,14 @@ from ..config import settings
 from ..models import PlayerAppearance, Team, Game, Player, Post, Season, User
 from ..schemas import PlayerAppearanceSummaryOut, PostOut
 from ..standings import compute_team_records
-from ..storage import team_logo_path, team_logo_url, post_image_path, post_image_url
+from ..storage import (
+    player_image_path,
+    player_image_url,
+    post_image_path,
+    post_image_url,
+    team_logo_path,
+    team_logo_url,
+)
 
 router = APIRouter(tags=["public"])
 
@@ -58,6 +65,11 @@ def serialize_player(player: Player, games_played: int = 0):
         "position": player.position,
         "bats": player.bats,
         "throws": player.throws,
+        "image_url": player_image_url(
+            player.id,
+            has_db_image=player.photo_image is not None,
+            image_updated_at=player.photo_updated_at,
+        ),
         "games_played": games_played,
     }
 
@@ -272,6 +284,26 @@ def list_team_players(team_id: int, db: Session = Depends(get_db)):
         .all()
     )
     return [serialize_player(player, games_played_map.get(player.id, 0)) for player in players]
+
+
+@router.get("/players/{player_id}/image")
+def get_player_image(player_id: int, db: Session = Depends(get_db)):
+    player = db.get(Player, player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    if player.photo_image:
+        return Response(
+            content=player.photo_image,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
+
+    path = player_image_path(player_id)
+    if path.exists():
+        return FileResponse(path, media_type="image/jpeg")
+
+    raise HTTPException(status_code=404, detail="Image not found")
 
 
 @router.get("/teams/{team_id}/roster")

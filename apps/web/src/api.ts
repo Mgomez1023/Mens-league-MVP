@@ -40,6 +40,7 @@ export type Player = {
   position?: string | null;
   bats?: string | null;
   throws?: string | null;
+  image_url?: string | null;
   games_played?: number;
 };
 
@@ -538,6 +539,16 @@ export async function updatePlayer(
     body: JSON.stringify(payload),
   });
   return res.json() as Promise<Player>;
+}
+
+export async function uploadPlayerImage(playerId: number, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await authenticatedFetch(`${API_BASE}/admin/players/${playerId}/image`, {
+    method: "POST",
+    body: formData,
+  });
+  return res.json() as Promise<{ image_url: string }>;
 }
 
 export async function deletePlayer(playerId: number) {

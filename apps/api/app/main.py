@@ -30,6 +30,10 @@ def ensure_player_columns():
             conn.execute(text("ALTER TABLE players ADD COLUMN number INTEGER"))
         if "position" not in columns:
             conn.execute(text("ALTER TABLE players ADD COLUMN position VARCHAR"))
+        if "photo_image" not in columns:
+            conn.execute(text("ALTER TABLE players ADD COLUMN photo_image BLOB"))
+        if "photo_updated_at" not in columns:
+            conn.execute(text("ALTER TABLE players ADD COLUMN photo_updated_at DATETIME"))
 
 ensure_player_columns()
 

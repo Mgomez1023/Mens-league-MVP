@@ -15,8 +15,10 @@ def _resolve_uploads_dir() -> Path:
 UPLOADS_DIR = _resolve_uploads_dir()
 TEAM_LOGO_DIR = UPLOADS_DIR / "teams"
 POST_IMAGE_DIR = UPLOADS_DIR / "posts"
+PLAYER_IMAGE_DIR = UPLOADS_DIR / "players"
 TEAM_LOGO_DIR.mkdir(parents=True, exist_ok=True)
 POST_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+PLAYER_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def team_logo_path(team_id: int) -> Path:
@@ -54,4 +56,31 @@ def post_image_url(post_id: int) -> str | None:
     path = post_image_path(post_id)
     if path.exists():
         return f"/uploads/posts/{post_id}.jpg"
+    return None
+
+
+def player_image_path(player_id: int) -> Path:
+    return PLAYER_IMAGE_DIR / f"{player_id}.jpg"
+
+
+def player_image_url(
+    player_id: int,
+    *,
+    has_db_image: bool = False,
+    image_updated_at: datetime | None = None,
+) -> str | None:
+    if has_db_image:
+        if image_updated_at:
+            timestamp = (
+                image_updated_at.timestamp()
+                if image_updated_at.tzinfo
+                else image_updated_at.replace(tzinfo=timezone.utc).timestamp()
+            )
+            version = int(timestamp)
+        else:
+            version = 0
+        return f"/players/{player_id}/image?v={version}"
+    path = player_image_path(player_id)
+    if path.exists():
+        return f"/uploads/players/{player_id}.jpg"
     return None

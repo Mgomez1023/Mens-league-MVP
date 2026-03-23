@@ -16,6 +16,7 @@ import {
   fetchTeamsPublic,
   importRosterCsv,
   resolveApiUrl,
+  uploadPlayerImage,
   uploadTeamLogo,
   updatePlayer,
 } from "../api";
@@ -55,6 +56,41 @@ const emptyForm = {
   throws: "",
 };
 
+function getPlayerInitials(firstName?: string | null, lastName?: string | null) {
+  const firstInitial = firstName?.trim().charAt(0) ?? "";
+  const lastInitial = lastName?.trim().charAt(0) ?? "";
+  const initials = `${firstInitial}${lastInitial}`.trim().toUpperCase();
+  return initials || "P";
+}
+
+function PlayerPhoto({
+  firstName,
+  lastName,
+  src,
+  alt,
+  className = "",
+}: {
+  firstName?: string | null;
+  lastName?: string | null;
+  src?: string | null;
+  alt: string;
+  className?: string;
+}) {
+  const classes = ["player-photo-frame", className, src ? "" : "player-photo-frame-placeholder"]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className={classes}>
+      {src ? (
+        <img src={src} alt={alt} loading="lazy" />
+      ) : (
+        <span aria-hidden="true">{getPlayerInitials(firstName, lastName)}</span>
+      )}
+    </div>
+  );
+}
+
 function sortRosterPlayers(players: Player[]) {
   return [...players].sort((a, b) => {
     const numberA = a.number ?? Number.MAX_SAFE_INTEGER;
@@ -84,6 +120,8 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState<Player | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [formImageFile, setFormImageFile] = useState<File | null>(null);
+  const [formImagePreview, setFormImagePreview] = useState<string | null>(null);
   const [playerSummary, setPlayerSummary] = useState<PlayerAppearanceSummary | null>(null);
   const [playerSummaryLoading, setPlayerSummaryLoading] = useState(false);
   const [playerSummaryError, setPlayerSummaryError] = useState<string | null>(null);
@@ -98,6 +136,15 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const [refreshKey, setRefreshKey] = useState(0);
 
   useBodyScrollLock(modalOpen || !!playerDeleteTarget || !!selectedPlayer);
+
+  useEffect(
+    () => () => {
+      if (formImagePreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(formImagePreview);
+      }
+    },
+    [formImagePreview],
+  );
 
   useEffect(() => {
     let active = true;
@@ -215,9 +262,20 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 3), [games]);
   const teamDisplayName = team?.name ?? t("common.teamFallback", { id: teamId ?? "" });
 
+  const updateFormImagePreview = (nextUrl: string | null) => {
+    setFormImagePreview((prev) => {
+      if (prev && prev !== nextUrl && prev.startsWith("blob:")) {
+        URL.revokeObjectURL(prev);
+      }
+      return nextUrl;
+    });
+  };
+
   const openAddModal = () => {
     setEditingPlayer(null);
     setFormData(emptyForm);
+    setFormImageFile(null);
+    updateFormImagePreview(null);
     setFormError(null);
     setModalOpen(true);
   };
@@ -232,6 +290,8 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
       bats: player.bats ?? "",
       throws: player.throws ?? "",
     });
+    setFormImageFile(null);
+    updateFormImagePreview(player.image_url ? resolveApiUrl(player.image_url) : null);
     setFormError(null);
     setModalOpen(true);
   };
@@ -239,6 +299,8 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const closeModal = () => {
     setModalOpen(false);
     setEditingPlayer(null);
+    setFormImageFile(null);
+    updateFormImagePreview(null);
     setFormError(null);
   };
 
@@ -250,8 +312,30 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
     setSelectedPlayer(null);
   };
 
+  const openEditFromDetails = () => {
+    if (!selectedPlayer) return;
+    const player = selectedPlayer;
+    closePlayerDetails();
+    openEditModal(player);
+  };
+
   const handleFormChange = (field: keyof typeof emptyForm, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFormImageChange = (file: File | null) => {
+    if (!file) {
+      setFormImageFile(null);
+      updateFormImagePreview(editingPlayer?.image_url ? resolveApiUrl(editingPlayer.image_url) : null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setFormError(t("roster.invalidImage"));
+      return;
+    }
+    setFormError(null);
+    setFormImageFile(file);
+    updateFormImagePreview(URL.createObjectURL(file));
   };
 
   const handleSavePlayer = async (event: React.FormEvent) => {
@@ -280,15 +364,38 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
 
     setSaving(true);
     try {
+      let savedPlayer: Player;
       if (editingPlayer) {
         const updated = await updatePlayer(editingPlayer.id, payload);
-        setPlayers((prev) => sortRosterPlayers([...prev.filter((player) => player.id !== updated.id), updated]));
-        setNotice(t("roster.playerUpdated"));
+        savedPlayer = updated;
       } else {
         const created = await createPlayer(teamNumericId, payload);
-        setPlayers((prev) => sortRosterPlayers([...prev, created]));
-        setNotice(t("roster.playerAdded"));
+        savedPlayer = created;
       }
+
+      let saveNotice = editingPlayer ? t("roster.playerUpdated") : t("roster.playerAdded");
+      if (formImageFile) {
+        try {
+          const imageResult = await uploadPlayerImage(savedPlayer.id, formImageFile);
+          savedPlayer = { ...savedPlayer, image_url: imageResult.image_url };
+        } catch (err) {
+          if (err instanceof AuthError) {
+            onAuthError();
+            return;
+          }
+          if (err instanceof PermissionError) {
+            setFormError(t("auth.adminAccessRequired"));
+            return;
+          }
+          saveNotice = t("roster.playerImageUploadError");
+        }
+      }
+
+      setPlayers((prev) =>
+        sortRosterPlayers([...prev.filter((player) => player.id !== savedPlayer.id), savedPlayer]),
+      );
+      setSelectedPlayer((prev) => (prev?.id === savedPlayer.id ? savedPlayer : prev));
+      setNotice(saveNotice);
       closeModal();
     } catch (err) {
       if (err instanceof AuthError) {
@@ -534,68 +641,59 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                     description={t("roster.emptyDescription")}
                   />
                 ) : (
-                  <div className="table-wrap roster-table-wrap">
-                    <table className="league-table roster-table">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <th>{t("common.players")}</th>
-                          <th>{t("common.position")}</th>
-                          <th>{t("common.bats")}</th>
-                          <th>{t("common.throws")}</th>
-                          <th>{t("common.gamesPlayed")}</th>
-                          {isAdmin && <th>{t("common.actions")}</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {players.map((player) => (
-                          <tr
-                            className="roster-row roster-row-clickable"
-                            key={player.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => openPlayerDetails(player)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
+                  <div className="player-card-list">
+                    {players.map((player) => (
+                      <article
+                        className="player-summary-card"
+                        key={player.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openPlayerDetails(player)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openPlayerDetails(player);
+                          }
+                        }}
+                      >
+                        <PlayerPhoto
+                          firstName={player.first_name}
+                          lastName={player.last_name}
+                          src={player.image_url ? resolveApiUrl(player.image_url) : null}
+                          alt={t("common.playerImageAlt", {
+                            name: `${player.first_name} ${player.last_name}`,
+                          })}
+                          className="player-summary-photo"
+                        />
+                        <div className="player-summary-body">
+                          <div className="player-summary-head">
+                            <div className="player-summary-name">
+                              <p>{player.first_name}</p>
+                              <h3>{player.last_name}</h3>
+                            </div>
+                            <span className="player-summary-number">{player.number ?? "-"}</span>
+                          </div>
+                          <span className="player-summary-divider" aria-hidden="true" />
+                          <p className="player-summary-position">{player.position ?? "-"}</p>
+                          <p className="player-summary-meta">
+                            {`${player.games_played ?? 0} GP / ${player.bats ?? "-"} / ${player.throws ?? "-"}`}
+                          </p>
+                          <p className="player-summary-submeta">{teamDisplayName}</p>
+                          <div className="player-summary-footer">
+                            <button
+                              className="button button-secondary button-small"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 openPlayerDetails(player);
-                              }
-                            }}
-                          >
-                            <td className="roster-cell-number" data-label="#">{player.number ?? "-"}</td>
-                            <td className="roster-cell-player" data-label={t("common.players")}>
-                              <div className="player-name-cell">
-                                <strong>
-                                  {player.first_name} {player.last_name}
-                                </strong>
-                              </div>
-                            </td>
-                            <td className="roster-cell-stat" data-label={t("common.position")}>{player.position ?? "-"}</td>
-                            <td className="roster-cell-stat" data-label={t("common.bats")}>{player.bats ?? "-"}</td>
-                            <td className="roster-cell-stat" data-label={t("common.throws")}>{player.throws ?? "-"}</td>
-                            <td className="roster-cell-stat" data-label={t("common.gamesPlayed")}>
-                              {player.games_played ?? 0}
-                            </td>
-                            {isAdmin && (
-                              <td className="roster-cell-actions" data-label={t("common.actions")}>
-                                <div className="table-actions">
-                                  <button
-                                    className="button button-secondary button-small"
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      openEditModal(player);
-                                    }}
-                                  >
-                                    {t("buttons.edit")}
-                                  </button>
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                              }}
+                            >
+                              {t("buttons.viewDetails")}
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
                   </div>
                 )}
               </SurfaceCard>
@@ -746,6 +844,35 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                   <option value="L">L</option>
                 </select>
               </label>
+              <label className="field player-form-photo-field player-form-field-wide">
+                <span>{t("roster.modal.photo")}</span>
+                <div className="player-form-photo-row">
+                  <PlayerPhoto
+                    firstName={formData.first_name}
+                    lastName={formData.last_name}
+                    src={formImagePreview}
+                    alt={t("common.playerImageAlt", {
+                      name: `${formData.first_name || ""} ${formData.last_name || ""}`.trim() || teamDisplayName,
+                    })}
+                    className="player-form-photo-preview"
+                  />
+                  <div className="player-form-photo-actions">
+                    <label className="button button-secondary file-button-inline">
+                      {t("buttons.uploadImage")}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] ?? null;
+                          event.currentTarget.value = "";
+                          handleFormImageChange(file);
+                        }}
+                      />
+                    </label>
+                    <p>{t("roster.modal.photoHelp")}</p>
+                  </div>
+                </div>
+              </label>
               <div className="form-actions">
                 <button className="button button-primary" type="submit" disabled={saving}>
                   {saving ? t("common.saveInProgress") : t("roster.modal.savePlayer")}
@@ -821,13 +948,24 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
               title={`${selectedPlayer.first_name} ${selectedPlayer.last_name}`}
               description={teamDisplayName}
               action={
-                <button
-                  className="button button-secondary button-small"
-                  type="button"
-                  onClick={closePlayerDetails}
-                >
-                  {t("buttons.close")}
-                </button>
+                <div className="player-detail-header-actions">
+                  {isAdmin ? (
+                    <button
+                      className="button button-secondary button-small"
+                      type="button"
+                      onClick={openEditFromDetails}
+                    >
+                      {t("buttons.edit")}
+                    </button>
+                  ) : null}
+                  <button
+                    className="button button-secondary button-small"
+                    type="button"
+                    onClick={closePlayerDetails}
+                  >
+                    {t("buttons.close")}
+                  </button>
+                </div>
               }
             />
 
@@ -844,22 +982,21 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                   <div className="summary-stat">
                     <span>{t("common.eligibility")}</span>
                     <strong>
-                      <StatusChip tone={playerSummary.eligible ? "success" : "warning"}>
+                      <StatusChip tone={playerSummary.eligible ? "success" : "danger"}>
                         {playerSummary.eligible ? t("roster.eligible") : t("roster.notEligible")}
                       </StatusChip>
                     </strong>
                   </div>
-                  <div className="summary-stat">
-                    <span>{t("roster.minimumRequired")}</span>
-                    <strong>{playerSummary.minimum_required_games}</strong>
-                  </div>
                 </div>
+                <p className="player-detail-minimum">
+                  {t("roster.minimumRequired")}:{" "}
+                  {t("games.minimumRequiredLabel", {
+                    count: playerSummary.minimum_required_games,
+                  })}
+                </p>
 
                 <div className="player-history-block">
-                  <SectionHeader
-                    title={t("roster.historyTitle")}
-                    description={t("roster.historyDescription")}
-                  />
+                  <h3 className="player-history-title">{t("roster.historyTitle")}</h3>
                   {playerSummary.history.length === 0 ? (
                     <EmptyState
                       compact
@@ -870,22 +1007,29 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                     <div className="player-history-list">
                       {playerSummary.history.map((item) => (
                         <article className="player-history-item" key={`${item.game_id}-${item.game_date}`}>
-                          <div className="player-history-topline">
+                          <div className="player-history-row">
+                            <span className="player-history-label">{t("common.date")}</span>
                             <strong>{formatDate(item.game_date)}</strong>
-                            <StatusChip tone={getGameStatusMeta(item.status).tone}>
-                              {getGameStatusMeta(item.status).label}
-                            </StatusChip>
                           </div>
-                          <p>{item.matchup}</p>
-                          <p>
-                            {t("roster.historyOpponent", {
-                              opponent: item.opponent_team_name ?? t("common.teamFallback", { id: item.opponent_team_id ?? "" }),
-                            })}
-                          </p>
-                          <p>
-                            {t("roster.historyGameId", { id: item.game_id })}
-                            {item.field ? ` • ${item.field}` : ""}
-                          </p>
+                          <div className="player-history-row">
+                            <span className="player-history-label">{t("roster.historyMatchupLabel")}</span>
+                            <span>{item.matchup}</span>
+                          </div>
+                          <div className="player-history-row">
+                            <span className="player-history-label">{t("roster.historyOpponentLabel")}</span>
+                            <span>
+                              {item.opponent_team_name ??
+                                t("common.teamFallback", { id: item.opponent_team_id ?? "" })}
+                            </span>
+                          </div>
+                          <div className="player-history-row">
+                            <span className="player-history-label">{t("roster.historyGameLabel")}</span>
+                            <span>{t("roster.historyGameId", { id: item.game_id })}</span>
+                          </div>
+                          <div className="player-history-row">
+                            <span className="player-history-label">{t("common.field")}</span>
+                            <span>{item.field || t("common.fieldTbd")}</span>
+                          </div>
                         </article>
                       ))}
                     </div>

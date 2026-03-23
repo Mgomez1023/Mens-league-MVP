@@ -50,6 +50,7 @@
     "inputLineup": "Input lineup",
     "importCsv": "Import CSV",
     "uploadLogo": "Upload logo",
+    "uploadImage": "Upload image",
     "getDirections": "Get Directions",
     "viewDetails": "View details"
   },
@@ -74,6 +75,7 @@
     "locationTbd": "Location TBD",
     "unscheduled": "Unscheduled",
     "logoAlt": "{{name}} logo",
+    "playerImageAlt": "{{name}} player photo",
     "leagueLogoAlt": "Benito Juarez Men's Baseball League logo",
     "announcementImageAlt": "League announcement",
     "youtubeThumbnailAlt": "YouTube video thumbnail",
@@ -349,6 +351,7 @@
     "playerAdded": "Player added.",
     "playerUpdated": "Player updated.",
     "playerRemoved": "Player removed.",
+    "playerImageUploadError": "Player saved, but the image could not be uploaded.",
     "csvProcessed": "Roster CSV processed.",
     "importError": "Unable to import roster.",
     "uploadLogoError": "Unable to upload the team logo right now.",
@@ -376,6 +379,9 @@
     "historyDescription": "Games recorded for this player, newest first.",
     "historyEmptyTitle": "No appearances recorded",
     "historyEmptyDescription": "Game appearances will show here after lineups are submitted.",
+    "historyMatchupLabel": "Matchup",
+    "historyOpponentLabel": "Opponent",
+    "historyGameLabel": "Game",
     "historyOpponent": "Opponent: {{opponent}}",
     "historyGameId": "Game #{{id}}",
     "emptyTitle": "No players listed",
@@ -394,7 +400,9 @@
       "savePlayer": "Save player",
       "firstName": "First name",
       "lastName": "Last name",
-      "number": "Number"
+      "number": "Number",
+      "photo": "Player photo",
+      "photoHelp": "Optional. Upload a headshot-style image."
     }
   }
 }

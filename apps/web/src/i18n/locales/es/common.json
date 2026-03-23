@@ -50,6 +50,7 @@
     "inputLineup": "Ingresar alineación",
     "importCsv": "Importar CSV",
     "uploadLogo": "Subir logo",
+    "uploadImage": "Subir imagen",
     "getDirections": "Cómo llegar",
     "viewDetails": "Ver detalles"
   },
@@ -74,6 +75,7 @@
     "locationTbd": "Ubicación por confirmar",
     "unscheduled": "Sin fecha",
     "logoAlt": "Logo de {{name}}",
+    "playerImageAlt": "Foto del jugador {{name}}",
     "leagueLogoAlt": "Logo de la Liga de Béisbol Benito Juarez",
     "announcementImageAlt": "Anuncio de la liga",
     "youtubeThumbnailAlt": "Miniatura de video de YouTube",
@@ -349,6 +351,7 @@
     "playerAdded": "Jugador agregado.",
     "playerUpdated": "Jugador actualizado.",
     "playerRemoved": "Jugador eliminado.",
+    "playerImageUploadError": "El jugador se guardó, pero no se pudo subir la imagen.",
     "csvProcessed": "CSV del roster procesado.",
     "importError": "No se pudo importar el roster.",
     "uploadLogoError": "No se pudo subir el logo del equipo en este momento.",
@@ -376,6 +379,9 @@
     "historyDescription": "Juegos registrados para este jugador, del más reciente al más antiguo.",
     "historyEmptyTitle": "No hay apariciones registradas",
     "historyEmptyDescription": "Las apariciones en juegos aparecerán aquí después de guardar alineaciones.",
+    "historyMatchupLabel": "Juego",
+    "historyOpponentLabel": "Rival",
+    "historyGameLabel": "Partido",
     "historyOpponent": "Rival: {{opponent}}",
     "historyGameId": "Juego #{{id}}",
     "emptyTitle": "No hay jugadores registrados",
@@ -394,7 +400,9 @@
       "savePlayer": "Guardar jugador",
       "firstName": "Nombre",
       "lastName": "Apellido",
-      "number": "Número"
+      "number": "Número",
+      "photo": "Foto del jugador",
+      "photoHelp": "Opcional. Sube una imagen tipo headshot."
     }
   }
 }
