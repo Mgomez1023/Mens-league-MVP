@@ -1518,6 +1518,55 @@ body {
   gap: var(--space-2);
 }
 
+.player-detail-identity {
+  display: grid;
+  grid-template-columns: 5.75rem minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: center;
+  padding: 0.55rem;
+  border: 1px solid rgba(99, 173, 221, 0.2);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(243, 248, 252, 0.98));
+}
+
+.player-detail-photo {
+  min-height: 8.5rem;
+}
+
+.player-detail-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.player-detail-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.player-detail-name,
+.player-detail-team,
+.player-detail-meta {
+  margin: 0;
+}
+
+.player-detail-name {
+  color: #15212d;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.player-detail-team,
+.player-detail-meta {
+  color: #566a7d;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
 .roster-table-wrap {
   padding-top: var(--space-3);
 }

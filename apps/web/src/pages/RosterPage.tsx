@@ -974,6 +974,32 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
 
             {!playerSummaryLoading && playerSummary ? (
               <>
+                <div className="player-detail-identity">
+                  <PlayerPhoto
+                    firstName={selectedPlayer.first_name}
+                    lastName={selectedPlayer.last_name}
+                    src={selectedPlayer.image_url ? resolveApiUrl(selectedPlayer.image_url) : null}
+                    alt={t("common.playerImageAlt", {
+                      name: `${selectedPlayer.first_name} ${selectedPlayer.last_name}`,
+                    })}
+                    className="player-detail-photo"
+                  />
+                  <div className="player-detail-copy">
+                    <div className="player-detail-topline">
+                      <div>
+                        <p className="player-detail-name">
+                          {selectedPlayer.first_name} {selectedPlayer.last_name}
+                        </p>
+                        <p className="player-detail-team">{teamDisplayName}</p>
+                      </div>
+                      <span className="player-summary-number">{selectedPlayer.number ?? "-"}</span>
+                    </div>
+                    <p className="player-summary-position">{selectedPlayer.position ?? "-"}</p>
+                    <p className="player-detail-meta">
+                      {`${t("common.bats")}: ${selectedPlayer.bats ?? "-"} / ${t("common.throws")}: ${selectedPlayer.throws ?? "-"}`}
+                    </p>
+                  </div>
+                </div>
                 <div className="player-detail-stats">
                   <div className="summary-stat">
                     <span>{t("common.gamesPlayed")}</span>
