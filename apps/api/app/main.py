@@ -18,7 +18,16 @@ from .storage import UPLOADS_DIR
 
 app = FastAPI(title="Men's League MVP API")
 
-Base.metadata.create_all(bind=engine)
+
+def run_startup_step(step):
+    try:
+        step()
+    except Exception as exc:
+        print(f"[startup warning] {step.__name__} failed: {exc}")
+
+
+def ensure_metadata():
+    Base.metadata.create_all(bind=engine)
 
 def ensure_player_columns():
     inspector = inspect(engine)
@@ -50,12 +59,9 @@ def ensure_player_columns():
     with engine.begin() as conn:
         for statement in statements:
             conn.execute(text(statement))
-        if "photo_image" not in columns:
-            conn.execute(text("ALTER TABLE players ADD COLUMN photo_image BLOB"))
-        if "photo_updated_at" not in columns:
-            conn.execute(text("ALTER TABLE players ADD COLUMN photo_updated_at DATETIME"))
 
-ensure_player_columns()
+run_startup_step(ensure_metadata)
+run_startup_step(ensure_player_columns)
 
 def ensure_game_columns():
     if engine.dialect.name != "sqlite":
@@ -66,7 +72,7 @@ def ensure_game_columns():
         if "time" not in columns:
             conn.execute(text("ALTER TABLE games ADD COLUMN time VARCHAR"))
 
-ensure_game_columns()
+run_startup_step(ensure_game_columns)
 
 def ensure_post_columns():
     if engine.dialect.name != "sqlite":
@@ -83,7 +89,7 @@ def ensure_post_columns():
             conn.execute(text("ALTER TABLE posts ADD COLUMN created_at DATETIME"))
             conn.execute(text("UPDATE posts SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
 
-ensure_post_columns()
+run_startup_step(ensure_post_columns)
 
 def ensure_team_columns():
     inspector = inspect(engine)
@@ -109,7 +115,7 @@ def ensure_team_columns():
         for statement in statements:
             conn.execute(text(statement))
 
-ensure_team_columns()
+run_startup_step(ensure_team_columns)
 
 
 def ensure_player_appearances_table():
@@ -119,7 +125,7 @@ def ensure_player_appearances_table():
     PlayerAppearance.__table__.create(bind=engine, checkfirst=True)
 
 
-ensure_player_appearances_table()
+run_startup_step(ensure_player_appearances_table)
 
 allow_all_origins = "*" in settings.cors_allow_origins
 app.add_middleware(
