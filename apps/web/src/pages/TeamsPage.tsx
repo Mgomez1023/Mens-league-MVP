@@ -239,10 +239,10 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
         eyebrow={t("teams.eyebrow")}
         title={t("teams.title")}
         description=""
-        actions={
+        titleAction={
           isAdmin ? (
             <button
-              className="button button-primary"
+              className="button button-primary button-small page-title-action-compact"
               type="button"
               onClick={() => setFormOpen((prev) => !prev)}
             >

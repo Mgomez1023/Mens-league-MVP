@@ -8,6 +8,7 @@ import {
   createGame,
   deleteGame,
   fetchGames,
+  fetchGameLineup,
   fetchGamesPublic,
   fetchTeams,
   fetchTeamsPublic,
@@ -15,9 +16,10 @@ import {
   getCachedTeams,
   importGamesCsv,
   resolveApiUrl,
+  saveGameLineup,
   updateGame,
 } from "../api";
-import type { Game, ImportGamesResult, Team } from "../api";
+import type { Game, GameLineup, ImportGamesResult, Team } from "../api";
 import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import { PublicGameCard } from "../components/PublicGameCard";
 import {
@@ -32,6 +34,7 @@ import {
 } from "../components/ui";
 import {
   buildTeamMap,
+  formatFullGameDate,
   formatTime,
   getGameScore,
   getGameShortLocation,
@@ -77,6 +80,12 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [lineupGame, setLineupGame] = useState<Game | null>(null);
+  const [lineupState, setLineupState] = useState<GameLineup | null>(null);
+  const [lineupSelectedIds, setLineupSelectedIds] = useState<number[]>([]);
+  const [lineupLoading, setLineupLoading] = useState(false);
+  const [lineupSaving, setLineupSaving] = useState(false);
+  const [lineupError, setLineupError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     window: "all",
     teamId: "all",
@@ -224,12 +233,62 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
     () => games.find((game) => game.id === selectedGameId) ?? null,
     [games, selectedGameId],
   );
+  const lineupSelectedSet = useMemo(() => new Set(lineupSelectedIds), [lineupSelectedIds]);
 
   useEffect(() => {
     if (selectedGameId != null && !selectedGame) {
       setSelectedGameId(null);
     }
   }, [selectedGame, selectedGameId]);
+
+  useEffect(() => {
+    if (!lineupGame) {
+      setLineupState(null);
+      setLineupSelectedIds([]);
+      setLineupLoading(false);
+      setLineupSaving(false);
+      setLineupError(null);
+      return;
+    }
+
+    let active = true;
+    setLineupLoading(true);
+    setLineupError(null);
+    setLineupState(null);
+    setLineupSelectedIds([]);
+
+    void fetchGameLineup(lineupGame.id)
+      .then((payload) => {
+        if (!active) return;
+        setLineupState(payload);
+        setLineupSelectedIds(payload.selected_player_ids);
+      })
+      .catch((err) => {
+        if (!active) return;
+        if (err instanceof AuthError) {
+          onAuthError();
+          return;
+        }
+        if (err instanceof PermissionError) {
+          setLineupError(t("auth.adminAccessRequired"));
+          return;
+        }
+        if (err instanceof ApiError && err.detail) {
+          setLineupError(err.detail);
+          return;
+        }
+        setLineupError(t("games.lineup.loadError"));
+      })
+      .finally(() => {
+        if (active) {
+          setLineupLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [lineupGame, onAuthError, t]);
 
   const handleFilterChange = (field: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -469,6 +528,57 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
     handleEditStart(selectedGame);
   };
 
+  const handleOpenLineup = (game: Game) => {
+    setLineupGame(game);
+    setLineupError(null);
+  };
+
+  const handleCloseLineup = () => {
+    setLineupGame(null);
+  };
+
+  const handleToggleLineupPlayer = (playerId: number) => {
+    setLineupSelectedIds((prev) =>
+      prev.includes(playerId) ? prev.filter((id) => id !== playerId) : [...prev, playerId],
+    );
+  };
+
+  const handleSaveLineup = async () => {
+    if (!lineupGame) return;
+    const confirmed = window.confirm(t("games.lineup.confirmSave"));
+    if (!confirmed) return;
+
+    setLineupSaving(true);
+    setLineupError(null);
+    setNotice(null);
+
+    try {
+      const saved = await saveGameLineup(lineupGame.id, {
+        player_ids: lineupSelectedIds,
+      });
+      setLineupState(saved);
+      setLineupSelectedIds(saved.selected_player_ids);
+      setNotice(t("games.lineup.saveSuccess"));
+      handleCloseLineup();
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        return;
+      }
+      if (err instanceof PermissionError) {
+        setLineupError(t("auth.adminAccessRequired"));
+        return;
+      }
+      if (err instanceof ApiError && err.detail) {
+        setLineupError(err.detail);
+        return;
+      }
+      setLineupError(t("games.lineup.saveError"));
+    } finally {
+      setLineupSaving(false);
+    }
+  };
+
   const handleDeleteFromDetails = async () => {
     if (!selectedGame) return;
     handleCloseGameDetails();
@@ -476,6 +586,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
   };
 
   const selectedGameDisplayData = selectedGame ? getGameDisplayData(selectedGame) : null;
+  const lineupModalTitle = lineupState?.matchup ?? (lineupGame ? getGameDisplayData(lineupGame) : null);
 
   return (
     <section className="page-stack">
@@ -510,50 +621,52 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
       />
 
       {isAdmin && (
-        <SurfaceCard className="admin-ops-card">
-          <SectionHeader title={t("games.scheduleOperations")} description="" />
-          <div className="admin-ops-actions">
-            <button
-              className="button button-danger"
-              type="button"
-              onClick={handleClearGames}
-              disabled={deletingId === -1}
-            >
-              {deletingId === -1 ? t("games.clearing") : t("games.clearAll")}
-            </button>
-            <button
-              className="button button-primary"
-              type="button"
-              onClick={() => setFormOpen((prev) => !prev)}
-            >
-              {formOpen ? t("common.closeForm") : t("buttons.addGame")}
-            </button>
-            <label className="button button-secondary file-button-inline">
-              {importing ? `${t("buttons.importCsv")}...` : t("buttons.importCsv")}
-              <input
-                key={fileInputKey}
-                type="file"
-                accept=".csv,text/csv"
-                disabled={importing}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) handleImportGames(file);
-                }}
-              />
-            </label>
-          </div>
-          {importError && <Notice variant="error">{importError}</Notice>}
-          {importResult && (
-            <Notice variant="success">
-              {t("games.importSummary", {
-                created: importResult.created,
-                updated: importResult.updated,
-                skipped: importResult.skipped,
-                errors: importResult.errors.length,
-              })}
-            </Notice>
-          )}
-        </SurfaceCard>
+        <>
+          <SurfaceCard className="admin-ops-card">
+            <SectionHeader title={t("games.scheduleOperations")} description="" />
+            <div className="admin-ops-actions">
+              <button
+                className="button button-danger"
+                type="button"
+                onClick={handleClearGames}
+                disabled={deletingId === -1}
+              >
+                {deletingId === -1 ? t("games.clearing") : t("games.clearAll")}
+              </button>
+              <button
+                className="button button-primary"
+                type="button"
+                onClick={() => setFormOpen((prev) => !prev)}
+              >
+                {formOpen ? t("common.closeForm") : t("buttons.addGame")}
+              </button>
+              <label className="button button-secondary file-button-inline">
+                {importing ? `${t("buttons.importCsv")}...` : t("buttons.importCsv")}
+                <input
+                  key={fileInputKey}
+                  type="file"
+                  accept=".csv,text/csv"
+                  disabled={importing}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) handleImportGames(file);
+                  }}
+                />
+              </label>
+            </div>
+            {importError && <Notice variant="error">{importError}</Notice>}
+            {importResult && (
+              <Notice variant="success">
+                {t("games.importSummary", {
+                  created: importResult.created,
+                  updated: importResult.updated,
+                  skipped: importResult.skipped,
+                  errors: importResult.errors.length,
+                })}
+              </Notice>
+            )}
+          </SurfaceCard>
+        </>
       )}
 
       {browseScheduleOpen && (
@@ -652,25 +765,12 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                             awayTeamLogoSrc={awayTeamLogoSrc}
                             homeTeamName={homeTeamName}
                             homeTeamLogoSrc={homeTeamLogoSrc}
+                            layout="schedule"
                             avatarSize="xl"
+                            detailLabel={t("games.detailsLink")}
                             footer={
                               isAdmin ? (
                                 <div className="table-actions">
-                                  <button
-                                    className="button button-secondary button-small"
-                                    type="button"
-                                    onClick={() => handleEditStart(game)}
-                                  >
-                                    {t("buttons.edit")}
-                                  </button>
-                                  <button
-                                    className="button button-danger button-small"
-                                    type="button"
-                                    onClick={() => handleDeleteGame(game.id)}
-                                    disabled={deletingId === game.id}
-                                  >
-                                    {deletingId === game.id ? t("common.deleteInProgress") : t("buttons.delete")}
-                                  </button>
                                 </div>
                               ) : null
                             }
@@ -751,6 +851,10 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                               <span className="schedule-mobile-row-detail-button" aria-hidden="true">
                                 {t("games.detailsLink")}
                               </span>
+                              {isAdmin ? (
+                                <div className="schedule-mobile-admin-actions">
+                                </div>
+                              ) : null}
                             </div>
                           </article>
                           <button
@@ -1017,6 +1121,114 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         </div>
       )}
 
+      {isAdmin && lineupGame && (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseLineup();
+            }
+          }}
+        >
+          <SurfaceCard className="modal-card lineup-modal">
+            <SectionHeader
+              title={
+                typeof lineupModalTitle === "string"
+                  ? lineupModalTitle
+                  : lineupModalTitle
+                    ? `${lineupModalTitle.awayTeamName} ${t("games.vs")} ${lineupModalTitle.homeTeamName}`
+                    : t("buttons.inputLineup")
+              }
+              description={`${formatFullGameDate(lineupGame)}${lineupState ? ` • ${t("games.minimumRequiredLabel", { count: lineupState.minimum_required_games })}` : ""}`}
+              action={
+                <button
+                  className="button button-secondary button-small"
+                  type="button"
+                  onClick={handleCloseLineup}
+                >
+                  {t("buttons.close")}
+                </button>
+              }
+            />
+
+            {lineupLoading ? <LoadingState label={t("games.lineup.loading")} /> : null}
+            {lineupError ? <Notice variant="error">{lineupError}</Notice> : null}
+
+            {!lineupLoading && lineupState ? (
+              <>
+                <div className="lineup-selection-summary">
+                  <strong>{t("games.lineup.selectedCount", { count: lineupSelectedIds.length })}</strong>
+                  <span>{t("games.lineup.selectionHelp")}</span>
+                </div>
+
+                <div className="lineup-columns">
+                  {[lineupState.away_team, lineupState.home_team].map((team) => (
+                    <section className="lineup-team-panel" key={team.team_id}>
+                      <div className="lineup-team-panel-header">
+                        <h3>{team.team_name}</h3>
+                        <span>
+                          {t("games.lineup.rosterCount", { count: team.players.length })}
+                        </span>
+                      </div>
+                      {team.players.length === 0 ? (
+                        <p className="lineup-empty">{t("games.lineup.emptyRoster")}</p>
+                      ) : (
+                        <div className="lineup-player-list">
+                          {team.players.map((player) => (
+                            <label className="lineup-player-row" key={player.id}>
+                              <input
+                                type="checkbox"
+                                checked={lineupSelectedSet.has(player.id)}
+                                onChange={() => handleToggleLineupPlayer(player.id)}
+                                disabled={lineupSaving}
+                              />
+                              <div className="lineup-player-copy">
+                                <strong>
+                                  {player.first_name} {player.last_name}
+                                </strong>
+                                <span className="lineup-player-meta">
+                                  #{player.number ?? "-"} • {player.position ?? t("common.position")}
+                                </span>
+                              </div>
+                              <span className="lineup-player-games">
+                                {t("games.lineup.gamesPlayedSummary", {
+                                  count: player.games_played ?? 0,
+                                })}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    className="button button-primary"
+                    type="button"
+                    onClick={() => void handleSaveLineup()}
+                    disabled={lineupSaving}
+                  >
+                    {lineupSaving ? t("common.saveInProgress") : t("games.lineup.saveButton")}
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    onClick={handleCloseLineup}
+                    disabled={lineupSaving}
+                  >
+                    {t("buttons.cancel")}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </SurfaceCard>
+        </div>
+      )}
+
       <GameDetailsDialog
         game={selectedGame}
         awayTeam={
@@ -1039,6 +1251,16 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         footer={
           isAdmin && selectedGame ? (
             <>
+              <button
+                className="button button-primary"
+                type="button"
+                onClick={() => {
+                  handleCloseGameDetails();
+                  handleOpenLineup(selectedGame);
+                }}
+              >
+                {t("buttons.inputLineup")}
+              </button>
               <button
                 className="button button-secondary"
                 type="button"

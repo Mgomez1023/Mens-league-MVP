@@ -4,11 +4,14 @@ from io import BytesIO
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel, Field
 from PIL import Image, ImageOps
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..deps import get_db, get_current_admin
-from ..models import Game, Player, Season, Team, User
+from ..models import Game, Player, PlayerAppearance, Season, Team, User
+from ..schemas import EligibilityReportItem, GameLineupOut, GameLineupUpdate
 from ..standings import compute_team_records
 from ..storage import team_logo_url
 
@@ -57,7 +60,7 @@ def serialize_game(game: Game):
         "status": game.status,
     }
 
-def serialize_player(player: Player):
+def serialize_player(player: Player, games_played: int = 0):
     return {
         "id": player.id,
         "team_id": player.team_id,
@@ -67,6 +70,82 @@ def serialize_player(player: Player):
         "position": player.position,
         "bats": player.bats,
         "throws": player.throws,
+        "games_played": games_played,
+    }
+
+
+def build_games_played_map(db: Session, team_id: int) -> dict[int, int]:
+    rows = (
+        db.query(
+            PlayerAppearance.player_id,
+            func.count(PlayerAppearance.id),
+        )
+        .filter(PlayerAppearance.team_id == team_id)
+        .group_by(PlayerAppearance.player_id)
+        .all()
+    )
+    return {player_id: games_played for player_id, games_played in rows}
+
+
+def serialize_lineup_team(team: Team, players: list[Player], games_played_map: dict[int, int]):
+    ordered_players = sorted(
+        players,
+        key=lambda player: (
+            player.number if player.number is not None else 9999,
+            player.last_name.lower(),
+            player.first_name.lower(),
+        ),
+    )
+    return {
+        "team_id": team.id,
+        "team_name": team.name,
+        "players": [
+            serialize_player(player, games_played_map.get(player.id, 0))
+            for player in ordered_players
+        ],
+    }
+
+
+def build_game_lineup_payload(game_id: int, db: Session):
+    game = db.get(Game, game_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    home_team = db.get(Team, game.home_team_id)
+    away_team = db.get(Team, game.away_team_id)
+    if not home_team or not away_team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    players = (
+        db.query(Player)
+        .filter(Player.team_id.in_([game.home_team_id, game.away_team_id]))
+        .order_by(Player.last_name.asc(), Player.first_name.asc())
+        .all()
+    )
+    home_players = [player for player in players if player.team_id == game.home_team_id]
+    away_players = [player for player in players if player.team_id == game.away_team_id]
+
+    selected_player_ids = [
+        player_id
+        for (player_id,) in (
+            db.query(PlayerAppearance.player_id)
+            .filter(PlayerAppearance.game_id == game_id)
+            .order_by(PlayerAppearance.player_id.asc())
+            .all()
+        )
+    ]
+
+    home_games_played_map = build_games_played_map(db, game.home_team_id)
+    away_games_played_map = build_games_played_map(db, game.away_team_id)
+
+    return {
+        "game_id": game.id,
+        "game_date": game.date,
+        "matchup": f"{away_team.name} vs {home_team.name}",
+        "minimum_required_games": settings.playoff_minimum_games,
+        "selected_player_ids": selected_player_ids,
+        "home_team": serialize_lineup_team(home_team, home_players, home_games_played_map),
+        "away_team": serialize_lineup_team(away_team, away_players, away_games_played_map),
     }
 
 
@@ -164,6 +243,16 @@ def delete_team(
         if has_games:
             raise HTTPException(status_code=400, detail="Remove games before deleting team")
     else:
+        game_ids = (
+            db.query(Game.id)
+            .filter((Game.home_team_id == team_id) | (Game.away_team_id == team_id))
+            .subquery()
+        )
+        db.query(PlayerAppearance).filter(
+            (PlayerAppearance.team_id == team_id) | (PlayerAppearance.game_id.in_(game_ids))
+        ).delete(
+            synchronize_session=False
+        )
         db.query(Game).filter(
             (Game.home_team_id == team_id) | (Game.away_team_id == team_id)
         ).delete(synchronize_session=False)
@@ -226,6 +315,100 @@ def list_games(_: User = Depends(get_current_admin), db: Session = Depends(get_d
     return [serialize_game(game) for game in games]
 
 
+@router.get("/games/{game_id}/lineup", response_model=GameLineupOut)
+def get_game_lineup(
+    game_id: int,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    return build_game_lineup_payload(game_id, db)
+
+
+@router.put("/games/{game_id}/lineup", response_model=GameLineupOut)
+def save_game_lineup(
+    game_id: int,
+    payload: GameLineupUpdate,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    game = db.get(Game, game_id)
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    allowed_team_ids = {game.home_team_id, game.away_team_id}
+    requested_player_ids = sorted(set(payload.player_ids))
+    players = []
+    if requested_player_ids:
+        players = (
+            db.query(Player)
+            .filter(Player.id.in_(requested_player_ids))
+            .all()
+        )
+        if len(players) != len(requested_player_ids):
+            raise HTTPException(status_code=404, detail="One or more players were not found")
+
+        invalid_players = [
+            player for player in players if player.team_id not in allowed_team_ids
+        ]
+        if invalid_players:
+            raise HTTPException(
+                status_code=400,
+                detail="Lineup players must belong to one of the teams in this game",
+            )
+
+    db.query(PlayerAppearance).filter(PlayerAppearance.game_id == game_id).delete(
+        synchronize_session=False
+    )
+    for player in players:
+        db.add(
+            PlayerAppearance(
+                player_id=player.id,
+                game_id=game_id,
+                team_id=player.team_id,
+            )
+        )
+
+    commit_or_raise(db)
+    return build_game_lineup_payload(game_id, db)
+
+
+@router.get("/eligibility-report", response_model=list[EligibilityReportItem])
+def get_eligibility_report(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    counts = {
+        player_id: total_games_played
+        for player_id, total_games_played in (
+            db.query(
+                PlayerAppearance.player_id,
+                func.count(PlayerAppearance.id),
+            )
+            .group_by(PlayerAppearance.player_id)
+            .all()
+        )
+    }
+    minimum_required_games = settings.playoff_minimum_games
+    players = (
+        db.query(Player, Team)
+        .join(Team, Player.team_id == Team.id)
+        .order_by(Team.name.asc(), Player.last_name.asc(), Player.first_name.asc())
+        .all()
+    )
+    return [
+        {
+            "player_id": player.id,
+            "player_name": f"{player.first_name} {player.last_name}",
+            "team_id": team.id,
+            "team_name": team.name,
+            "total_games_played": counts.get(player.id, 0),
+            "minimum_required_games": minimum_required_games,
+            "eligible": counts.get(player.id, 0) >= minimum_required_games,
+        }
+        for player, team in players
+    ]
+
+
 @router.post("/games")
 def create_game(
     payload: GameCreate,
@@ -272,6 +455,8 @@ def update_game(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
+    original_home_team_id = game.home_team_id
+    original_away_team_id = game.away_team_id
     home_team_id = payload.home_team_id if payload.home_team_id is not None else game.home_team_id
     away_team_id = payload.away_team_id if payload.away_team_id is not None else game.away_team_id
     if home_team_id == away_team_id:
@@ -299,6 +484,11 @@ def update_game(
     if payload.away_score is not None:
         game.away_score = payload.away_score
 
+    if home_team_id != original_home_team_id or away_team_id != original_away_team_id:
+        db.query(PlayerAppearance).filter(PlayerAppearance.game_id == game_id).delete(
+            synchronize_session=False
+        )
+
     commit_or_raise(db)
     db.refresh(game)
     return serialize_game(game)
@@ -313,6 +503,9 @@ def delete_game(
     game = db.get(Game, game_id)
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
+    db.query(PlayerAppearance).filter(PlayerAppearance.game_id == game_id).delete(
+        synchronize_session=False
+    )
     db.delete(game)
     commit_or_raise(db)
     return {"ok": True}
@@ -323,6 +516,7 @@ def delete_all_games(
     _: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
+    db.query(PlayerAppearance).delete(synchronize_session=False)
     db.query(Game).delete(synchronize_session=False)
     commit_or_raise(db)
     return {"ok": True}
@@ -337,13 +531,14 @@ def list_team_players(
     team = db.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+    games_played_map = build_games_played_map(db, team_id)
     players = (
         db.query(Player)
         .filter(Player.team_id == team_id)
         .order_by(Player.last_name.asc(), Player.first_name.asc())
         .all()
     )
-    return [serialize_player(player) for player in players]
+    return [serialize_player(player, games_played_map.get(player.id, 0)) for player in players]
 
 
 @router.post("/teams/{team_id}/players")
@@ -452,6 +647,9 @@ def delete_player(
     player = db.get(Player, player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
+    db.query(PlayerAppearance).filter(PlayerAppearance.player_id == player_id).delete(
+        synchronize_session=False
+    )
     db.delete(player)
     commit_or_raise(db)
     return {"ok": True}

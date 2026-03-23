@@ -225,11 +225,11 @@ export default function PostsPage({ isAdmin, onAuthError }: PostsPageProps) {
       <PageHeader
         eyebrow={t("posts.eyebrow")}
         title={t("posts.title")}
-        description={t("posts.description")}
-        actions={
+        description={t("")}
+        titleAction={
           isAdmin ? (
             <button
-              className="button button-primary"
+              className="button button-primary button-small page-title-action-compact"
               type="button"
               onClick={() => setComposerOpen(true)}
             >

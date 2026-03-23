@@ -40,6 +40,54 @@ export type Player = {
   position?: string | null;
   bats?: string | null;
   throws?: string | null;
+  games_played?: number;
+};
+
+export type GameLineupTeam = {
+  team_id: number;
+  team_name: string;
+  players: Player[];
+};
+
+export type GameLineup = {
+  game_id: number;
+  game_date: string;
+  matchup: string;
+  minimum_required_games: number;
+  selected_player_ids: number[];
+  home_team: GameLineupTeam;
+  away_team: GameLineupTeam;
+};
+
+export type PlayerAppearanceHistoryItem = {
+  game_id: number;
+  game_date: string;
+  matchup: string;
+  opponent_team_id?: number | null;
+  opponent_team_name?: string | null;
+  field?: string | null;
+  status: string;
+};
+
+export type PlayerAppearanceSummary = {
+  player_id: number;
+  player_name: string;
+  team_id: number;
+  team_name: string;
+  total_games_played: number;
+  minimum_required_games: number;
+  eligible: boolean;
+  history: PlayerAppearanceHistoryItem[];
+};
+
+export type EligibilityReportItem = {
+  player_id: number;
+  player_name: string;
+  team_id: number;
+  team_name: string;
+  total_games_played: number;
+  minimum_required_games: number;
+  eligible: boolean;
 };
 
 export type Post = {
@@ -291,6 +339,25 @@ export async function updateGame(
   return res.json() as Promise<Game>;
 }
 
+export async function fetchGameLineup(gameId: number) {
+  const res = await authenticatedFetch(`${API_BASE}/admin/games/${gameId}/lineup`);
+  return res.json() as Promise<GameLineup>;
+}
+
+export async function saveGameLineup(gameId: number, payload: { player_ids: number[] }) {
+  const res = await authenticatedFetch(`${API_BASE}/admin/games/${gameId}/lineup`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return res.json() as Promise<GameLineup>;
+}
+
+export async function fetchEligibilityReport() {
+  const res = await authenticatedFetch(`${API_BASE}/admin/eligibility-report`);
+  return res.json() as Promise<EligibilityReportItem[]>;
+}
+
 export async function deleteGame(gameId: number) {
   await authenticatedFetch(`${API_BASE}/admin/games/${gameId}`, {
     method: "DELETE",
@@ -410,6 +477,28 @@ export async function fetchRosterPublic(teamId: number) {
     throw new ApiError("Request failed", fallback.status);
   }
   return fallback.json() as Promise<Player[]>;
+}
+
+export async function fetchPlayerAppearanceSummary(playerId: number) {
+  const res = await fetch(`${API_BASE}/players/${playerId}/appearance-summary`);
+  if (!res.ok) {
+    let detail: string | undefined;
+    try {
+      const data = await res.clone().json();
+      if (data && typeof data.detail === "string") {
+        detail = data.detail;
+      }
+    } catch {
+      try {
+        const text = await res.text();
+        if (text) detail = text;
+      } catch {
+        // ignore
+      }
+    }
+    throw new ApiError(detail || "Request failed", res.status, detail);
+  }
+  return res.json() as Promise<PlayerAppearanceSummary>;
 }
 
 export async function createPlayer(

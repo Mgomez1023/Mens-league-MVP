@@ -28,6 +28,7 @@ class Team(Base):
     logo_updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 
     players: Mapped[list["Player"]] = relationship(back_populates="team")
+    appearances: Mapped[list["PlayerAppearance"]] = relationship(back_populates="team")
 
 class Player(Base):
     __tablename__ = "players"
@@ -41,6 +42,7 @@ class Player(Base):
 
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     team: Mapped[Team] = relationship(back_populates="players")
+    appearances: Mapped[list["PlayerAppearance"]] = relationship(back_populates="player")
 
     __table_args__ = (
         UniqueConstraint("team_id", "first_name", "last_name", name="uq_player_team_name"),
@@ -60,6 +62,26 @@ class Game(Base):
     home_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     away_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String, default="SCHEDULED")  # SCHEDULED|FINAL
+    appearances: Mapped[list["PlayerAppearance"]] = relationship(back_populates="game")
+
+
+class PlayerAppearance(Base):
+    __tablename__ = "player_appearances"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), index=True)
+    game_id: Mapped[int] = mapped_column(ForeignKey("games.id"), index=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
+    recorded_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.datetime.utcnow
+    )
+
+    player: Mapped[Player] = relationship(back_populates="appearances")
+    game: Mapped[Game] = relationship(back_populates="appearances")
+    team: Mapped[Team] = relationship(back_populates="appearances")
+
+    __table_args__ = (
+        UniqueConstraint("player_id", "game_id", name="uq_player_game_appearance"),
+    )
 
 
 class Post(Base):

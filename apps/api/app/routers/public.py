@@ -6,11 +6,13 @@ from io import BytesIO, TextIOWrapper
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse, Response
 from PIL import Image
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, aliased
 
 from ..deps import get_db, get_current_admin
-from ..models import Team, Game, Player, Post, Season, User
-from ..schemas import PostOut
+from ..config import settings
+from ..models import PlayerAppearance, Team, Game, Player, Post, Season, User
+from ..schemas import PlayerAppearanceSummaryOut, PostOut
 from ..standings import compute_team_records
 from ..storage import team_logo_path, team_logo_url, post_image_path, post_image_url
 
@@ -46,7 +48,7 @@ def serialize_game(game: Game):
     }
 
 
-def serialize_player(player: Player):
+def serialize_player(player: Player, games_played: int = 0):
     return {
         "id": player.id,
         "team_id": player.team_id,
@@ -56,6 +58,7 @@ def serialize_player(player: Player):
         "position": player.position,
         "bats": player.bats,
         "throws": player.throws,
+        "games_played": games_played,
     }
 
 
@@ -66,6 +69,76 @@ def serialize_post(post: Post):
         "author_name": post.author_name,
         "created_at": post.created_at,
         "image_url": post_image_url(post.id),
+    }
+
+
+def build_games_played_map(db: Session, team_id: int) -> dict[int, int]:
+    rows = (
+        db.query(
+            PlayerAppearance.player_id,
+            func.count(PlayerAppearance.id),
+        )
+        .filter(PlayerAppearance.team_id == team_id)
+        .group_by(PlayerAppearance.player_id)
+        .all()
+    )
+    return {player_id: games_played for player_id, games_played in rows}
+
+
+def build_player_appearance_summary(player_id: int, db: Session):
+    player = db.get(Player, player_id)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    team = db.get(Team, player.team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    home_team = aliased(Team)
+    away_team = aliased(Team)
+    rows = (
+        db.query(
+            PlayerAppearance,
+            Game,
+            home_team.name,
+            away_team.name,
+        )
+        .join(Game, PlayerAppearance.game_id == Game.id)
+        .join(home_team, Game.home_team_id == home_team.id)
+        .join(away_team, Game.away_team_id == away_team.id)
+        .filter(PlayerAppearance.player_id == player_id)
+        .order_by(Game.date.desc(), Game.time.desc(), Game.id.desc())
+        .all()
+    )
+
+    history = []
+    for _, game, home_team_name, away_team_name in rows:
+        is_home = player.team_id == game.home_team_id
+        opponent_team_id = game.away_team_id if is_home else game.home_team_id
+        opponent_team_name = away_team_name if is_home else home_team_name
+        history.append(
+            {
+                "game_id": game.id,
+                "game_date": game.date,
+                "matchup": f"{away_team_name} vs {home_team_name}",
+                "opponent_team_id": opponent_team_id,
+                "opponent_team_name": opponent_team_name,
+                "field": game.field,
+                "status": game.status,
+            }
+        )
+
+    total_games_played = len(history)
+    minimum_required_games = settings.playoff_minimum_games
+    return {
+        "player_id": player.id,
+        "player_name": f"{player.first_name} {player.last_name}",
+        "team_id": team.id,
+        "team_name": team.name,
+        "total_games_played": total_games_played,
+        "minimum_required_games": minimum_required_games,
+        "eligible": total_games_played >= minimum_required_games,
+        "history": history,
     }
 
 
@@ -191,18 +264,24 @@ def list_team_players(team_id: int, db: Session = Depends(get_db)):
     team = db.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+    games_played_map = build_games_played_map(db, team_id)
     players = (
         db.query(Player)
         .filter(Player.team_id == team_id)
         .order_by(Player.last_name.asc(), Player.first_name.asc())
         .all()
     )
-    return [serialize_player(player) for player in players]
+    return [serialize_player(player, games_played_map.get(player.id, 0)) for player in players]
 
 
 @router.get("/teams/{team_id}/roster")
 def get_roster(team_id: int, db: Session = Depends(get_db)):
     return list_team_players(team_id, db)
+
+
+@router.get("/players/{player_id}/appearance-summary", response_model=PlayerAppearanceSummaryOut)
+def get_player_appearance_summary(player_id: int, db: Session = Depends(get_db)):
+    return build_player_appearance_summary(player_id, db)
 
 
 @router.post("/teams/{team_id}/roster/import-csv")

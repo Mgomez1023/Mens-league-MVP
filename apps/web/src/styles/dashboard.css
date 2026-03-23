@@ -544,7 +544,21 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex-wrap: wrap;
+}
+
+.page-header-actions {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.page-header .inline-actions {
+  width: 100%;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.page-header .inline-actions > * {
+  flex: 1 1 0;
 }
 
 .schedule-browser-icon-button {
@@ -666,6 +680,17 @@ body {
 .button-small {
   padding: 0.6rem 0.9rem;
   font-size: 0.92rem;
+}
+
+.page-title-action-compact {
+  padding: 0.62rem 0.84rem;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+.page-header-title-row .page-title-action-compact {
+  width: auto;
+  flex: 0 0 auto;
 }
 
 .status-chip {
@@ -866,6 +891,14 @@ body {
   grid-template-columns: 1fr;
 }
 
+.player-form-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.player-form-field-wide {
+  grid-column: span 2;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -910,7 +943,6 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex-wrap: wrap;
 }
 
 .form-actions {
@@ -1331,6 +1363,10 @@ body {
   box-shadow: 0 18px 34px rgba(11, 23, 34, 0.12);
 }
 
+.roster-row-clickable {
+  cursor: pointer;
+}
+
 .roster-row td:first-child {
   border-left: 1px solid rgba(99, 173, 221, 0.2);
   border-top-left-radius: 20px;
@@ -1362,6 +1398,42 @@ body {
 
 .roster-cell-actions {
   width: 12rem;
+}
+
+.player-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.player-history-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.player-history-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.player-history-item {
+  padding: var(--space-3);
+  border: 1px solid rgba(99, 173, 221, 0.2);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 247, 252, 0.98));
+  box-shadow: 0 12px 24px rgba(13, 24, 36, 0.08);
+}
+
+.player-history-item p {
+  margin: 0.4rem 0 0;
+}
+
+.player-history-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .roster-table .player-name-cell strong {
@@ -1437,6 +1509,8 @@ body {
 
 .schedule-list-desktop {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
 .schedule-mobile-list {
@@ -1448,6 +1522,7 @@ body {
 .schedule-game-card-shell,
 .schedule-mobile-row-shell {
   position: relative;
+  width: 100%;
 }
 
 .public-game-card,
@@ -1566,7 +1641,11 @@ body {
 
 .public-game-card-team-name,
 .public-game-card-team-score,
-.public-game-card-meta {
+.public-game-card-meta,
+.public-game-card-location,
+.public-game-card-center-date,
+.public-game-card-team-role,
+.public-game-card-center-label {
   margin: 0;
   color: #202020;
 }
@@ -1575,6 +1654,13 @@ body {
   font-weight: 800;
   line-height: 1.2;
   text-wrap: balance;
+}
+
+.public-game-card-team-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
 }
 
 .public-game-card-team-score {
@@ -1620,23 +1706,157 @@ body {
 
 .schedule-game-card {
   width: 100%;
-  max-width: 340px;
+  max-width: none;
+  min-height: 100%;
   margin: 0 auto;
-  padding-inline: 0.9rem;
+  padding: 1.15rem 1.35rem 1rem;
   background:
-    linear-gradient(180deg, rgba(255, 250, 244, 0.94), rgba(244, 232, 212, 0.9));
+    radial-gradient(circle at top center, rgba(255, 241, 235, 0.72), transparent 48%),
+    linear-gradient(180deg, rgba(235, 244, 255, 0.98), rgba(214, 230, 250, 0.96));
+  border: 1px solid rgba(120, 164, 214, 0.52);
+  border-radius: 26px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 18px 34px rgba(31, 73, 123, 0.16);
   transition:
     transform 0.2s ease,
     border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
 
-.schedule-game-card .public-game-card-matchup {
-  gap: var(--space-3);
+.schedule-game-card .public-game-card-topline-schedule {
+  align-items: center;
+  margin-bottom: 0.2rem;
 }
 
-.schedule-game-card .public-game-card-versus {
-  padding-top: 0.35rem;
+.schedule-game-card .status-chip {
+  background: rgba(144, 195, 255, 0.28);
+  color: #3d81c6;
+  border-color: rgba(130, 181, 234, 0.32);
+}
+
+.schedule-game-card .public-game-card-location {
+  color: #5c7492;
+  font-size: 0.95rem;
+}
+
+.public-game-card-matchup-schedule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 2rem);
+}
+
+.schedule-game-card .public-game-card-team-schedule {
+  gap: 0.7rem;
+}
+
+.schedule-game-card .public-game-card-team-schedule .team-avatar-xl {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 20px;
+  box-shadow: 0 12px 18px rgba(17, 40, 69, 0.12);
+}
+
+.schedule-game-card .public-game-card-team-role,
+.schedule-game-card .public-game-card-center-label {
+  color: #5d7191;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.schedule-game-card .public-game-card-team-name {
+  color: #192735;
+  font-size: 1.18rem;
+}
+
+.schedule-game-card .public-game-card-team-score {
+  color: #19375b;
+}
+
+.public-game-card-center-schedule {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+.schedule-game-card .public-game-card-center-time {
+  margin: 0;
+  color: #1f3144;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1.45rem + 1vw, 3rem);
+  line-height: 0.96;
+}
+
+.schedule-game-card .public-game-card-center-date {
+  color: #7085a2;
+  font-size: 1rem;
+}
+
+.schedule-game-card .public-game-card-center-scoreline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: #1f3144;
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 1.55rem + 1.2vw, 3.2rem);
+  line-height: 0.96;
+}
+
+.schedule-game-card .public-game-card-center-score-divider {
+  color: rgba(31, 49, 68, 0.48);
+}
+
+.public-game-card-footer-schedule {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: 0.9rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid rgba(120, 164, 214, 0.34);
+}
+
+.public-game-card-detail-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(120, 164, 214, 0.42);
+  color: #3d81c6;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.public-game-card-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.public-game-card-footer-actions .button {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 980px) {
+  .schedule-list-desktop {
+    grid-template-columns: 1fr;
+  }
 }
 
 .schedule-card-overlay,
@@ -1661,8 +1881,10 @@ body {
 .schedule-mobile-row-shell:hover .schedule-mobile-row,
 .schedule-mobile-row-shell:focus-within .schedule-mobile-row {
   transform: translateY(-2px);
-  border-color: rgba(170, 115, 75, 0.84);
-  box-shadow: 0 20px 34px rgba(7, 10, 14, 0.3);
+  border-color: rgba(82, 139, 205, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 20px 36px rgba(36, 84, 138, 0.24);
 }
 
 .public-game-card-footer {
@@ -1800,6 +2022,114 @@ body {
   font-size: 0.95rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.schedule-mobile-admin-actions {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.lineup-modal,
+.player-detail-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.lineup-modal {
+  width: min(920px, 100%);
+}
+
+.lineup-selection-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid rgba(149, 97, 57, 0.2);
+  border-radius: 18px;
+  background: rgba(255, 248, 237, 0.62);
+}
+
+.lineup-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.lineup-team-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid rgba(149, 97, 57, 0.2);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 250, 244, 0.96), rgba(244, 232, 212, 0.88));
+}
+
+.lineup-team-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.lineup-team-panel-header h3 {
+  margin: 0;
+  color: #352316;
+}
+
+.lineup-player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.lineup-player-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(149, 97, 57, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.lineup-player-row input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.lineup-player-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.lineup-player-meta,
+.lineup-player-games,
+.lineup-empty {
+  color: var(--color-text-soft);
+  font-size: 0.88rem;
+}
+
+.lineup-player-games {
+  text-align: right;
+}
+
+.eligibility-report-table-wrap {
+  padding-top: var(--space-3);
+}
+
+.eligibility-report-table th,
+.eligibility-report-table td {
+  text-align: left;
 }
 
 .announcement-content,
@@ -2180,6 +2510,22 @@ body {
   overflow: auto;
 }
 
+.modal-card .section-header {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.modal-card .section-header > :first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.modal-card .section-header-action,
+.modal-card .section-header > :last-child {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .game-details-dialog {
   display: flex;
   flex-direction: column;
@@ -2427,7 +2773,6 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex-wrap: wrap;
   justify-content: flex-start;
 }
 
@@ -2520,6 +2865,14 @@ body {
   .form-grid,
   .filter-grid {
     grid-template-columns: 1fr;
+  }
+
+  .player-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .player-form-field-wide {
+    grid-column: span 1;
   }
 
   .team-meta-list {
@@ -2788,11 +3141,12 @@ body {
   }
 
   .schedule-list-desktop {
-    display: none;
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .schedule-mobile-list {
-    display: flex;
+    display: none;
   }
 
   .schedule-mobile-row-topline,
@@ -4011,6 +4365,74 @@ body {
 }
 
 @media (max-width: 640px) {
+  .schedule-list-desktop {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .schedule-mobile-list {
+    display: none;
+  }
+
+  .schedule-game-card {
+    padding: 1rem 0.95rem 0.9rem;
+    border-radius: 22px;
+  }
+
+  .public-game-card-matchup-schedule {
+    gap: 0.75rem;
+  }
+
+  .schedule-game-card .public-game-card-team-schedule .team-avatar-xl {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 18px;
+  }
+
+  .schedule-game-card .public-game-card-team-role,
+  .schedule-game-card .public-game-card-center-label {
+    font-size: 0.66rem;
+  }
+
+  .schedule-game-card .public-game-card-team-name {
+    font-size: 0.98rem;
+  }
+
+  .schedule-game-card .public-game-card-location,
+  .schedule-game-card .public-game-card-center-date {
+    font-size: 0.84rem;
+  }
+
+  .schedule-game-card .public-game-card-center-time {
+    font-size: clamp(1.55rem, 8vw, 2.15rem);
+  }
+
+  .schedule-game-card .public-game-card-center-scoreline {
+    font-size: clamp(1.9rem, 8vw, 2.45rem);
+  }
+
+  .public-game-card-footer-schedule {
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .public-game-card-detail-indicator {
+    min-height: 2.15rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.72rem;
+  }
+
+  .public-game-card-footer-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .public-game-card-footer-actions .button {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.72rem;
+  }
+
   .roster-table-wrap {
     overflow-x: visible;
     padding-top: var(--space-2);
@@ -4066,17 +4488,17 @@ body {
   }
 
   .roster-cell-player {
-    width: 41%;
+    width: 31%;
     min-width: 0;
   }
 
   .roster-cell-stat {
-    width: 10%;
+    width: 11%;
     font-size: 0.8rem;
   }
 
   .roster-cell-actions {
-    width: 20%;
+    width: 24%;
   }
 
   .roster-table .player-name-cell strong {
@@ -4096,5 +4518,26 @@ body {
     padding: 0.45rem 0.35rem;
     font-size: 0.72rem;
     white-space: normal;
+  }
+
+  .player-detail-stats,
+  .lineup-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .lineup-selection-summary,
+  .schedule-mobile-row-footer,
+  .player-history-topline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lineup-player-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .lineup-player-games {
+    grid-column: 2;
+    text-align: left;
   }
 }

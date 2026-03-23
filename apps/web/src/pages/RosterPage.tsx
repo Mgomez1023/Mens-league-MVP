@@ -7,6 +7,7 @@ import {
   PermissionError,
   createPlayer,
   deletePlayer,
+  fetchPlayerAppearanceSummary,
   fetchGames,
   fetchGamesPublic,
   fetchRoster,
@@ -18,7 +19,7 @@ import {
   uploadTeamLogo,
   updatePlayer,
 } from "../api";
-import type { Game, Player, Team } from "../api";
+import type { Game, Player, PlayerAppearanceSummary, Team } from "../api";
 import {
   EmptyState,
   LoadingState,
@@ -53,6 +54,15 @@ const emptyForm = {
   throws: "",
 };
 
+function sortRosterPlayers(players: Player[]) {
+  return [...players].sort((a, b) => {
+    const numberA = a.number ?? Number.MAX_SAFE_INTEGER;
+    const numberB = b.number ?? Number.MAX_SAFE_INTEGER;
+    if (numberA !== numberB) return numberA - numberB;
+    return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
+  });
+}
+
 export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageProps) {
   const { t } = useTranslation();
   const { teamId } = useParams();
@@ -72,6 +82,10 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState<Player | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [playerSummary, setPlayerSummary] = useState<PlayerAppearanceSummary | null>(null);
+  const [playerSummaryLoading, setPlayerSummaryLoading] = useState(false);
+  const [playerSummaryError, setPlayerSummaryError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -120,14 +134,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         return;
       }
 
-      setPlayers(
-        [...rosterRes.value].sort((a, b) => {
-          const numberA = a.number ?? Number.MAX_SAFE_INTEGER;
-          const numberB = b.number ?? Number.MAX_SAFE_INTEGER;
-          if (numberA !== numberB) return numberA - numberB;
-          return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
-        }),
-      );
+      setPlayers(sortRosterPlayers(rosterRes.value));
 
       if (teamsRes.status === "fulfilled") {
         setAllTeams(teamsRes.value);
@@ -155,6 +162,43 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
       active = false;
     };
   }, [authed, isAdmin, onAuthError, refreshKey, t, teamId, teamNumericId]);
+
+  useEffect(() => {
+    if (!selectedPlayer) {
+      setPlayerSummary(null);
+      setPlayerSummaryError(null);
+      setPlayerSummaryLoading(false);
+      return;
+    }
+
+    let active = true;
+    setPlayerSummaryLoading(true);
+    setPlayerSummaryError(null);
+    setPlayerSummary(null);
+
+    void fetchPlayerAppearanceSummary(selectedPlayer.id)
+      .then((summary) => {
+        if (!active) return;
+        setPlayerSummary(summary);
+      })
+      .catch((err) => {
+        if (!active) return;
+        if (err instanceof ApiError && err.detail) {
+          setPlayerSummaryError(err.detail);
+          return;
+        }
+        setPlayerSummaryError(t("roster.playerDetailLoadError"));
+      })
+      .finally(() => {
+        if (active) {
+          setPlayerSummaryLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedPlayer, t]);
 
   const opponentMap = useMemo(
     () =>
@@ -195,6 +239,14 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
     setFormError(null);
   };
 
+  const openPlayerDetails = (player: Player) => {
+    setSelectedPlayer(player);
+  };
+
+  const closePlayerDetails = () => {
+    setSelectedPlayer(null);
+  };
+
   const handleFormChange = (field: keyof typeof emptyForm, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -227,25 +279,11 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
     try {
       if (editingPlayer) {
         const updated = await updatePlayer(editingPlayer.id, payload);
-        setPlayers((prev) =>
-          [...prev.filter((player) => player.id !== updated.id), updated].sort((a, b) => {
-            const numberA = a.number ?? Number.MAX_SAFE_INTEGER;
-            const numberB = b.number ?? Number.MAX_SAFE_INTEGER;
-            if (numberA !== numberB) return numberA - numberB;
-            return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
-          }),
-        );
+        setPlayers((prev) => sortRosterPlayers([...prev.filter((player) => player.id !== updated.id), updated]));
         setNotice(t("roster.playerUpdated"));
       } else {
         const created = await createPlayer(teamNumericId, payload);
-        setPlayers((prev) =>
-          [...prev, created].sort((a, b) => {
-            const numberA = a.number ?? Number.MAX_SAFE_INTEGER;
-            const numberB = b.number ?? Number.MAX_SAFE_INTEGER;
-            if (numberA !== numberB) return numberA - numberB;
-            return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
-          }),
-        );
+        setPlayers((prev) => sortRosterPlayers([...prev, created]));
         setNotice(t("roster.playerAdded"));
       }
       closeModal();
@@ -279,6 +317,9 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
       await deletePlayer(playerId);
       setPlayers((prev) => prev.filter((player) => player.id !== playerId));
       setNotice(t("roster.playerRemoved"));
+      if (editingPlayer?.id === playerId) {
+        closeModal();
+      }
       setPlayerDeleteTarget(null);
     } catch (err) {
       if (err instanceof AuthError) {
@@ -372,7 +413,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
       <PageHeader
         eyebrow={t("roster.eyebrow")}
         title={teamDisplayName}
-        description={t("roster.description")}
+        description={t("")}
         actions={
           <div className="inline-actions">
             <Link className="button button-secondary" to="/teams">
@@ -480,7 +521,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
               <SurfaceCard className="roster-table-surface">
                 <SectionHeader
                   title={t("roster.activeRoster")}
-                  description={t("roster.activeRosterDescription")}
+                  description={t("")}
                 />
                 {players.length === 0 ? (
                   <EmptyState
@@ -495,6 +536,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                           <th>#</th>
                           <th>{t("common.players")}</th>
                           <th>{t("common.position")}</th>
+                          <th>{t("common.gamesPlayed")}</th>
                           <th>{t("common.bats")}</th>
                           <th>{t("common.throws")}</th>
                           {isAdmin && <th>{t("common.actions")}</th>}
@@ -502,7 +544,19 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                       </thead>
                       <tbody>
                         {players.map((player) => (
-                          <tr className="roster-row" key={player.id}>
+                          <tr
+                            className="roster-row roster-row-clickable"
+                            key={player.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openPlayerDetails(player)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                openPlayerDetails(player);
+                              }
+                            }}
+                          >
                             <td className="roster-cell-number" data-label="#">{player.number ?? "-"}</td>
                             <td className="roster-cell-player" data-label={t("common.players")}>
                               <div className="player-name-cell">
@@ -512,6 +566,9 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                               </div>
                             </td>
                             <td className="roster-cell-stat" data-label={t("common.position")}>{player.position ?? "-"}</td>
+                            <td className="roster-cell-stat" data-label={t("common.gamesPlayed")}>
+                              {player.games_played ?? 0}
+                            </td>
                             <td className="roster-cell-stat" data-label={t("common.bats")}>{player.bats ?? "-"}</td>
                             <td className="roster-cell-stat" data-label={t("common.throws")}>{player.throws ?? "-"}</td>
                             {isAdmin && (
@@ -519,16 +576,13 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                                 <div className="table-actions">
                                   <button
                                     className="button button-secondary button-small"
-                                    onClick={() => openEditModal(player)}
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      openEditModal(player);
+                                    }}
                                   >
                                     {t("buttons.edit")}
-                                  </button>
-                                  <button
-                                    className="button button-danger button-small"
-                                    onClick={() => setPlayerDeleteTarget(player)}
-                                    disabled={deletingId === player.id}
-                                  >
-                                    {deletingId === player.id ? t("common.deleteInProgress") : t("buttons.delete")}
                                   </button>
                                 </div>
                               </td>
@@ -623,20 +677,25 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
             <SectionHeader
               title={editingPlayer ? t("roster.modal.editTitle") : t("roster.modal.addTitle")}
               action={
-                <button className="button button-secondary button-small" type="button" onClick={closeModal}>
-                  {t("buttons.close")}
+                <button
+                  className="game-details-close"
+                  type="button"
+                  onClick={closeModal}
+                  aria-label={t("buttons.close")}
+                >
+                  <span aria-hidden="true">x</span>
                 </button>
               }
             />
-            <form className="form-grid" onSubmit={handleSavePlayer}>
-              <label className="field">
+            <form className="form-grid player-form-grid" onSubmit={handleSavePlayer}>
+              <label className="field player-form-field-wide">
                 <span>{t("roster.modal.firstName")}</span>
                 <input
                   value={formData.first_name}
                   onChange={(event) => handleFormChange("first_name", event.target.value)}
                 />
               </label>
-              <label className="field">
+              <label className="field player-form-field-wide">
                 <span>{t("roster.modal.lastName")}</span>
                 <input
                   value={formData.last_name}
@@ -686,6 +745,16 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                 <button className="button button-primary" type="submit" disabled={saving}>
                   {saving ? t("common.saveInProgress") : t("roster.modal.savePlayer")}
                 </button>
+                {editingPlayer ? (
+                  <button
+                    className="button button-danger"
+                    type="button"
+                    onClick={() => setPlayerDeleteTarget(editingPlayer)}
+                    disabled={deletingId === editingPlayer.id}
+                  >
+                    {deletingId === editingPlayer.id ? t("common.deleteInProgress") : t("buttons.delete")}
+                  </button>
+                ) : null}
                 <button className="button button-secondary" type="button" onClick={closeModal}>
                   {t("buttons.cancel")}
                 </button>
@@ -727,6 +796,98 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                 {t("buttons.cancel")}
               </button>
             </div>
+          </SurfaceCard>
+        </div>
+      )}
+
+      {selectedPlayer && (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closePlayerDetails();
+            }
+          }}
+        >
+          <SurfaceCard className="modal-card player-detail-modal">
+            <SectionHeader
+              title={`${selectedPlayer.first_name} ${selectedPlayer.last_name}`}
+              description={teamDisplayName}
+              action={
+                <button
+                  className="button button-secondary button-small"
+                  type="button"
+                  onClick={closePlayerDetails}
+                >
+                  {t("buttons.close")}
+                </button>
+              }
+            />
+
+            {playerSummaryLoading ? <LoadingState label={t("roster.playerDetailLoading")} /> : null}
+            {playerSummaryError ? <Notice variant="error">{playerSummaryError}</Notice> : null}
+
+            {!playerSummaryLoading && playerSummary ? (
+              <>
+                <div className="player-detail-stats">
+                  <div className="summary-stat">
+                    <span>{t("common.gamesPlayed")}</span>
+                    <strong>{playerSummary.total_games_played}</strong>
+                  </div>
+                  <div className="summary-stat">
+                    <span>{t("common.eligibility")}</span>
+                    <strong>
+                      <StatusChip tone={playerSummary.eligible ? "success" : "warning"}>
+                        {playerSummary.eligible ? t("roster.eligible") : t("roster.notEligible")}
+                      </StatusChip>
+                    </strong>
+                  </div>
+                  <div className="summary-stat">
+                    <span>{t("roster.minimumRequired")}</span>
+                    <strong>{playerSummary.minimum_required_games}</strong>
+                  </div>
+                </div>
+
+                <div className="player-history-block">
+                  <SectionHeader
+                    title={t("roster.historyTitle")}
+                    description={t("roster.historyDescription")}
+                  />
+                  {playerSummary.history.length === 0 ? (
+                    <EmptyState
+                      compact
+                      title={t("roster.historyEmptyTitle")}
+                      description={t("roster.historyEmptyDescription")}
+                    />
+                  ) : (
+                    <div className="player-history-list">
+                      {playerSummary.history.map((item) => (
+                        <article className="player-history-item" key={`${item.game_id}-${item.game_date}`}>
+                          <div className="player-history-topline">
+                            <strong>{formatDate(item.game_date)}</strong>
+                            <StatusChip tone={getGameStatusMeta(item.status).tone}>
+                              {getGameStatusMeta(item.status).label}
+                            </StatusChip>
+                          </div>
+                          <p>{item.matchup}</p>
+                          <p>
+                            {t("roster.historyOpponent", {
+                              opponent: item.opponent_team_name ?? t("common.teamFallback", { id: item.opponent_team_id ?? "" }),
+                            })}
+                          </p>
+                          <p>
+                            {t("roster.historyGameId", { id: item.game_id })}
+                            {item.field ? ` • ${item.field}` : ""}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
           </SurfaceCard>
         </div>
       )}

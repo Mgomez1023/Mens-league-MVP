@@ -7,7 +7,7 @@ from .config import settings
 from .db import Base, engine, SessionLocal
 from datetime import date
 
-from .models import Season, Team, User
+from .models import PlayerAppearance, Season, Team, User
 from .security import hash_password
 from sqlalchemy import inspect, text
 
@@ -86,6 +86,16 @@ def ensure_team_columns():
             conn.execute(text(statement))
 
 ensure_team_columns()
+
+
+def ensure_player_appearances_table():
+    inspector = inspect(engine)
+    if "player_appearances" in inspector.get_table_names():
+        return
+    PlayerAppearance.__table__.create(bind=engine, checkfirst=True)
+
+
+ensure_player_appearances_table()
 
 allow_all_origins = "*" in settings.cors_allow_origins
 app.add_middleware(
