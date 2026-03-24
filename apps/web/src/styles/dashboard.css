@@ -23,7 +23,7 @@
   --color-warning-soft: #ebdcc2;
   --color-danger: #c99a98;
   --color-danger-soft: #aa6857;
-  --shadow-card: 0 18px 44px rgba(0, 0, 0, 0.28);
+  --shadow-card: 0 24px 54px rgba(0, 0, 0, 0.34);
   --shadow-header: 0 14px 34px rgba(0, 0, 0, 0.42);
   --shadow-top: 14 34px 0px rgba(0, 0, 0, 0.42);
 
@@ -202,6 +202,29 @@ body {
   align-items: center;
   gap: var(--space-4);
   justify-content: flex-end;
+}
+
+.app-session-bar {
+  width: 100%;
+  border-top: 1px solid rgba(99, 173, 221, 0.18);
+  border-bottom: 1px solid rgba(99, 173, 221, 0.16);
+  background: linear-gradient(180deg, rgba(11, 15, 21, 0.94), rgba(8, 11, 16, 0.98));
+}
+
+.app-session-bar-inner {
+  width: min(1120px, calc(100% - 2rem));
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  min-height: 42px;
+  padding: 0.25rem 0;
+}
+
+.app-session-logout {
+  width: auto;
+  min-width: 0;
 }
 
 .session-indicator,
@@ -1873,6 +1896,7 @@ body {
   border-radius: var(--radius-md);
   border: 1px solid rgba(199, 163, 123, 0.68);
   background: var(--color-surface-alt);
+  box-shadow: var(--shadow-card);
 }
 
 .public-game-card,
@@ -2068,10 +2092,22 @@ body {
   margin-bottom: 0.2rem;
 }
 
-.schedule-game-card .status-chip {
+.schedule-game-card .status-chip-neutral {
   background: rgba(144, 195, 255, 0.28);
   color: #3d81c6;
   border-color: rgba(130, 181, 234, 0.32);
+}
+
+.schedule-game-card .status-chip-success {
+  background: rgba(108, 196, 126, 0.22);
+  color: #2f8a43;
+  border-color: rgba(77, 164, 94, 0.28);
+}
+
+.schedule-game-card .status-chip-danger {
+  background: rgba(230, 89, 89, 0.18);
+  color: #bf2f2f;
+  border-color: rgba(201, 46, 46, 0.28);
 }
 
 .schedule-game-card .public-game-card-location {
@@ -3150,6 +3186,7 @@ body {
   }
 
   .desktop-only,
+  .app-session-bar,
   .app-header-utility,
   .admin-panel,
   .admin-panel-backdrop {
@@ -3607,7 +3644,7 @@ body {
   --color-warning-soft: rgba(201, 46, 46, 0.14);
   --color-danger: #534645;
   --color-danger-soft: rgba(197, 31, 26, 0.16);
-  --shadow-card: 0 16px 30px rgba(2, 5, 9, 0.22);
+  --shadow-card: 0 22px 44px rgba(2, 5, 9, 0.32);
   --shadow-header: 0 10px 28px rgba(2, 5, 9, 0.52);
 }
 
@@ -3721,6 +3758,23 @@ body {
   padding: 10px 14px;
 }
 
+.app-session-bar .admin-menu-trigger,
+.app-session-bar .app-session-logout,
+.app-session-bar .session-indicator {
+  min-height: 2rem;
+}
+
+.app-session-bar .admin-menu-trigger,
+.app-session-bar .app-session-logout {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.98rem;
+}
+
+.app-session-bar .session-indicator {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+}
+
 .app-nav-link.active,
 .app-nav-link:hover,
 .drawer-link.active,
@@ -3752,6 +3806,17 @@ body {
   justify-content: flex-end;
   gap: 10px;
   flex: 1;
+}
+
+.app-session-bar {
+  border-top-color: rgba(99, 173, 221, 0.18);
+  border-bottom-color: rgba(99, 173, 221, 0.16);
+  background: linear-gradient(180deg, rgba(8, 12, 17, 0.94), rgba(6, 9, 14, 0.98));
+}
+
+.app-session-bar-inner {
+  width: min(1120px, calc(100% - 2rem));
+  gap: 8px;
 }
 
 .admin-panel-backdrop,
@@ -3863,7 +3928,7 @@ body {
 .notice {
   background: linear-gradient(160deg, #fbfdff 0%, #dcebfb 100%);
   border: 1px solid rgba(99, 173, 221, 0.34);
-  box-shadow: 0 16px 30px rgba(7, 10, 14, 0.28);
+  box-shadow: 0 22px 44px rgba(7, 10, 14, 0.34);
   color: #000000;
 }
 
@@ -3910,7 +3975,7 @@ body {
 .public-game-card-standard {
   background: linear-gradient(160deg, #fbfdff 0%, #dcebfb 100%);
   border-color: rgba(99, 173, 221, 0.34);
-  box-shadow: 0 16px 30px rgba(7, 10, 14, 0.28);
+  box-shadow: 0 22px 44px rgba(7, 10, 14, 0.34);
 }
 
 .public-game-card-footer {

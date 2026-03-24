@@ -33,10 +33,10 @@ export default function DashboardLayout({
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const publicLinks: Array<{ to: string; label: string; end?: boolean }> = [
     { to: "/games", label: t("nav.games") },
-    { to: "/rules", label: t("nav.rules") },
     { to: "/standings", label: t("nav.standings") },
     { to: "/teams", label: t("nav.teams") },
     { to: "/posts", label: t("nav.posts") },
+    { to: "/rules", label: t("nav.rules") },
   ];
   const signedInLabel = authed
     ? isAdmin
@@ -147,10 +147,17 @@ export default function DashboardLayout({
             >
               {t("nav.menu")}
             </button>
-            {signedInLabel ? <span className="session-indicator desktop-only">{signedInLabel}</span> : null}
+          </div>
+        </div>
+      </header>
+
+      {authed && (
+        <div className="app-session-bar desktop-only">
+          <div className="app-session-bar-inner">
+            {signedInLabel ? <span className="session-indicator">{signedInLabel}</span> : null}
             {isAdmin && (
               <button
-                className="admin-menu-trigger desktop-only"
+                className="admin-menu-trigger"
                 type="button"
                 aria-expanded={adminMenuOpen}
                 aria-controls="admin-panel"
@@ -159,14 +166,12 @@ export default function DashboardLayout({
                 {t("admin.title")}
               </button>
             )}
-            {authed && (
-              <button className="button button-secondary desktop-only" type="button" onClick={onLogout}>
-                {t("auth.logout")}
-              </button>
-            )}
+            <button className="button button-secondary app-session-logout" type="button" onClick={onLogout}>
+              {t("auth.logout")}
+            </button>
           </div>
         </div>
-      </header>
+      )}
 
       <div className={`admin-panel-backdrop ${adminMenuOpen ? "open" : ""}`} onClick={closeAdminMenu} />
 
