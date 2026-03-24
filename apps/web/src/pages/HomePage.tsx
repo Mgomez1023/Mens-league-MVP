@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FaFacebookF, FaYoutube } from "react-icons/fa6";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { fetchGamesPublic, fetchTeamsPublic, getPosts, resolveApiUrl } from "../api";
 import type { Game, Post, Team } from "../api";
 import homeHeroImage from "../assets/Background.png";
@@ -36,6 +36,7 @@ function HomeSocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]
 
 export default function HomePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [teams, setTeams] = useState<Team[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -84,6 +85,10 @@ export default function HomePage() {
   const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 3), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 4), [games]);
   const latestPosts = useMemo(() => posts.slice(0, 4), [posts]);
+
+  const handleOpenGameDetails = (gameId: number) => {
+    navigate("/games", { state: { selectedGameId: gameId } });
+  };
 
   return (
     <section className="page-stack">
@@ -149,15 +154,12 @@ export default function HomePage() {
         <div className="home-layout">
           <div className="home-primary">
             <SurfaceCard>
-              <SectionHeader
-                title={t("home.upcomingGames")}
-                description=""
-                action={
-                  <Link className="button button-secondary button-small" to="/games">
-                    {t("buttons.fullSchedule")}
-                  </Link>
-                }
-              />
+              <div className="home-upcoming-header">
+                <h2>{t("home.upcomingGames")}</h2>
+                <Link className="button button-secondary button-small home-upcoming-action" to="/games">
+                  {t("buttons.fullSchedule")}
+                </Link>
+              </div>
               {upcomingGames.length === 0 ? (
                 <EmptyState
                   compact
@@ -169,18 +171,46 @@ export default function HomePage() {
                   {upcomingGames.map((game) => {
                     const away = teamMap[game.away_team_id];
                     const home = teamMap[game.home_team_id];
+                    const awayTeamName =
+                      away?.name ?? t("common.teamFallback", { id: game.away_team_id });
+                    const homeTeamName =
+                      home?.name ?? t("common.teamFallback", { id: game.home_team_id });
+
                     return (
-                      <PublicGameCard
-                        key={game.id}
-                        className="home-game-card"
-                        game={game}
-                        awayTeamName={away?.name ?? t("common.teamFallback", { id: game.away_team_id })}
-                        awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
-                        homeTeamName={home?.name ?? t("common.teamFallback", { id: game.home_team_id })}
-                        homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
-                        showMetaDate
-                        variant="featured"
-                      />
+                      <div key={game.id} className="schedule-game-card-shell">
+                        <PublicGameCard
+                          className="schedule-game-card"
+                          game={game}
+                          awayTeamName={awayTeamName}
+                          awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
+                          homeTeamName={homeTeamName}
+                          homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
+                          layout="schedule"
+                          avatarSize="xl"
+                          footer={
+                            <div className="table-actions">
+                              <button
+                                className="button button-secondary button-small"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleOpenGameDetails(game.id);
+                                }}
+                              >
+                                {t("games.detailsLink")}
+                              </button>
+                            </div>
+                          }
+                        />
+                        <button
+                          className="schedule-card-overlay"
+                          type="button"
+                          aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
+                          onClick={() => handleOpenGameDetails(game.id)}
+                        >
+                          <span className="visually-hidden">{t("buttons.viewDetails")}</span>
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -203,18 +233,46 @@ export default function HomePage() {
                   {recentResults.map((game) => {
                     const away = teamMap[game.away_team_id];
                     const home = teamMap[game.home_team_id];
+                    const awayTeamName =
+                      away?.name ?? t("common.teamFallback", { id: game.away_team_id });
+                    const homeTeamName =
+                      home?.name ?? t("common.teamFallback", { id: game.home_team_id });
+
                     return (
-                      <PublicGameCard
-                        key={game.id}
-                        className="home-game-card"
-                        game={game}
-                        awayTeamName={away?.name ?? t("common.teamFallback", { id: game.away_team_id })}
-                        awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
-                        homeTeamName={home?.name ?? t("common.teamFallback", { id: game.home_team_id })}
-                        homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
-                        showMetaDate
-                        variant="featured"
-                      />
+                      <div key={game.id} className="schedule-game-card-shell">
+                        <PublicGameCard
+                          className="schedule-game-card"
+                          game={game}
+                          awayTeamName={awayTeamName}
+                          awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
+                          homeTeamName={homeTeamName}
+                          homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
+                          layout="schedule"
+                          avatarSize="xl"
+                          footer={
+                            <div className="table-actions">
+                              <button
+                                className="button button-secondary button-small"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleOpenGameDetails(game.id);
+                                }}
+                              >
+                                {t("games.detailsLink")}
+                              </button>
+                            </div>
+                          }
+                        />
+                        <button
+                          className="schedule-card-overlay"
+                          type="button"
+                          aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
+                          onClick={() => handleOpenGameDetails(game.id)}
+                        >
+                          <span className="visually-hidden">{t("buttons.viewDetails")}</span>
+                        </button>
+                      </div>
                     );
                   })}
                 </div>

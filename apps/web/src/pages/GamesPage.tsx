@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ApiError,
   AuthError,
@@ -72,6 +73,8 @@ export default function GamesPage({
   onAuthError,
 }: GamesPageProps) {
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [teams, setTeams] = useState<Team[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +118,14 @@ export default function GamesPage({
     { value: "POSTPONED", label: t("games.status.postponed") },
     { value: "CANCELLED", label: t("games.status.cancelled") },
   ];
+
+  useEffect(() => {
+    const state = location.state as { selectedGameId?: number } | null;
+    if (typeof state?.selectedGameId !== "number") return;
+
+    setSelectedGameId(state.selectedGameId);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
     let active = true;
