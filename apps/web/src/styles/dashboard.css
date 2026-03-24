@@ -1647,7 +1647,7 @@ body {
 .player-detail-minimum {
   margin: 0;
   text-align: center;
-  color: var(--color-text-soft);
+  color: #14181b;
   font-size: 0.92rem;
 }
 

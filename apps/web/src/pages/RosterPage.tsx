@@ -1015,7 +1015,6 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                   </div>
                 </div>
                 <p className="player-detail-minimum">
-                  {t("roster.minimumRequired")}:{" "}
                   {t("games.minimumRequiredLabel", {
                     count: playerSummary.minimum_required_games,
                   })}
