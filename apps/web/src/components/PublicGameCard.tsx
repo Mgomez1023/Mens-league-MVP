@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Game } from "../api";
 import { getCurrentLocale } from "../i18n";
-import { formatDate, formatTime, getGameStatusMeta } from "../utils/league";
+import { formatDate, formatTime, getGameStatusMeta, parseDateOnly } from "../utils/league";
 import { StatusChip, TeamAvatar } from "./ui";
 
 function cx(...values: Array<string | false | null | undefined>) {
@@ -10,7 +10,7 @@ function cx(...values: Array<string | false | null | undefined>) {
 }
 
 function formatHeaderDate(value: string) {
-  const date = new Date(value);
+  const date = parseDateOnly(value) ?? new Date(value);
   if (Number.isNaN(date.getTime())) return formatDate(value);
   return date.toLocaleDateString(getCurrentLocale(), {
     weekday: "short",
@@ -20,7 +20,7 @@ function formatHeaderDate(value: string) {
 }
 
 function formatFullCardDate(value: string) {
-  const date = new Date(value);
+  const date = parseDateOnly(value) ?? new Date(value);
   if (Number.isNaN(date.getTime())) return formatDate(value);
   return date.toLocaleDateString(getCurrentLocale(), {
     weekday: "long",

@@ -1830,6 +1830,10 @@ body {
   gap: var(--space-6);
 }
 
+.schedule-group-anchor {
+  scroll-margin-top: 7rem;
+}
+
 .matchup-list,
 .results-list,
 .announcement-list,

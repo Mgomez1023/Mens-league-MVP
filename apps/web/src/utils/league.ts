@@ -11,11 +11,18 @@ function firstNonEmpty(...values: Array<string | null | undefined>) {
 }
 
 export function parseDateOnly(value: string) {
-  if (!value) return null;
-  const datePart = value.includes("T") ? value.split("T")[0] : value.split(" ")[0];
+  const datePart = getDateOnlyKey(value);
+  if (!datePart) return null;
   const date = new Date(`${datePart}T00:00:00`);
   if (Number.isNaN(date.getTime())) return null;
   return date;
+}
+
+export function getDateOnlyKey(value: string) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.includes("T") ? trimmed.split("T")[0] : trimmed.split(" ")[0];
 }
 
 export function parseGameDateTime(game: Pick<Game, "date" | "time">) {
@@ -37,7 +44,7 @@ function formatDateValue(date: Date, options: Intl.DateTimeFormatOptions) {
 }
 
 export function formatDate(value: string, options?: Intl.DateTimeFormatOptions) {
-  const date = new Date(value);
+  const date = parseDateOnly(value) ?? new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return formatDateValue(date, {
     month: "short",
@@ -188,10 +195,10 @@ export function groupGamesByDate(games: Game[]) {
     return timeA - timeB || a.id - b.id;
   });
 
-  const grouped: Array<{ key: string; label: string; games: Game[] }> = [];
+  const grouped: GameDateGroup[] = [];
   for (const game of sorted) {
     const date = parseDateOnly(game.date);
-    const key = date ? date.toISOString().slice(0, 10) : `game-${game.id}`;
+    const key = getDateOnlyKey(game.date) ?? `game-${game.id}`;
     const label = date
       ? formatDateValue(date, {
           weekday: "long",
@@ -208,6 +215,32 @@ export function groupGamesByDate(games: Game[]) {
     }
   }
   return grouped;
+}
+
+export type GameDateGroup = {
+  key: string;
+  label: string;
+  games: Game[];
+};
+
+export function getCurrentScheduleGroupKey(groups: GameDateGroup[], now = new Date()) {
+  if (groups.length === 0) return null;
+
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  const datedGroups = groups.flatMap((group) => {
+    const date = parseDateOnly(group.key);
+    return date ? [{ group, date }] : [];
+  });
+
+  const todaysGroup = datedGroups.find(({ date }) => date.getTime() === today.getTime());
+  if (todaysGroup) return todaysGroup.group.key;
+
+  const upcomingGroup = datedGroups.find(({ date }) => date.getTime() > today.getTime());
+  if (upcomingGroup) return upcomingGroup.group.key;
+
+  return datedGroups[datedGroups.length - 1]?.group.key ?? groups[0].key;
 }
 
 export function getRecord(team: Team) {

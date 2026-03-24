@@ -38,6 +38,7 @@ import {
   buildTeamMap,
   formatFullGameDate,
   formatTime,
+  getCurrentScheduleGroupKey,
   getGameScore,
   getGameShortLocation,
   getGameStatusMeta,
@@ -108,6 +109,8 @@ export default function GamesPage({
   const [editData, setEditData] = useState(emptyForm);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const browseScheduleRef = useRef<HTMLDivElement | null>(null);
+  const scheduleGroupRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const hasAutoScrolledToCurrentGroupRef = useRef(false);
 
   useBodyScrollLock(formOpen || !!editingGame || !!lineupGame);
 
@@ -252,6 +255,10 @@ export default function GamesPage({
   }, [filters, games]);
 
   const groupedGames = useMemo(() => groupGamesByDate(filteredGames), [filteredGames]);
+  const currentScheduleGroupKey = useMemo(
+    () => getCurrentScheduleGroupKey(groupedGames),
+    [groupedGames],
+  );
   const selectedGame = useMemo(
     () => games.find((game) => game.id === selectedGameId) ?? null,
     [games, selectedGameId],
@@ -318,6 +325,19 @@ export default function GamesPage({
       active = false;
     };
   }, [lineupGame, onAuthError, t]);
+
+  useEffect(() => {
+    if (loading || error || endpointMissing || hasAutoScrolledToCurrentGroupRef.current) return;
+    if (!currentScheduleGroupKey) return;
+
+    const target = scheduleGroupRefs.current[currentScheduleGroupKey];
+    if (!target) return;
+
+    hasAutoScrolledToCurrentGroupRef.current = true;
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "auto", block: "start" });
+    });
+  }, [currentScheduleGroupKey, endpointMissing, error, loading]);
 
   const handleFilterChange = (field: keyof typeof filters, value: string) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -778,146 +798,154 @@ export default function GamesPage({
           ) : (
             <div className="schedule-groups">
               {groupedGames.map((group) => (
-                <SurfaceCard key={group.key}>
-                  <SectionHeader
-                    title={group.label}
-                    description={t("games.groupCount", { count: group.games.length })}
-                  />
-                  <div className="schedule-list schedule-list-desktop">
-                    {group.games.map((game) => {
-                      const {
-                        awayTeamName,
-                        awayTeamLogoSrc,
-                        homeTeamName,
-                        homeTeamLogoSrc,
-                      } = getGameDisplayData(game);
+                <div
+                  key={group.key}
+                  ref={(node) => {
+                    scheduleGroupRefs.current[group.key] = node;
+                  }}
+                  className="schedule-group-anchor"
+                >
+                  <SurfaceCard>
+                    <SectionHeader
+                      title={group.label}
+                      description={t("games.groupCount", { count: group.games.length })}
+                    />
+                    <div className="schedule-list schedule-list-desktop">
+                      {group.games.map((game) => {
+                        const {
+                          awayTeamName,
+                          awayTeamLogoSrc,
+                          homeTeamName,
+                          homeTeamLogoSrc,
+                        } = getGameDisplayData(game);
 
-                      return (
-                        <div key={game.id} className="schedule-game-card-shell">
-                          <PublicGameCard
-                            className="schedule-game-card"
-                            game={game}
-                            awayTeamName={awayTeamName}
-                            awayTeamLogoSrc={awayTeamLogoSrc}
-                            homeTeamName={homeTeamName}
-                            homeTeamLogoSrc={homeTeamLogoSrc}
-                            layout="schedule"
-                            avatarSize="xl"
-                            footer={
-                              <div className="table-actions">
-                                <button
-                                  className="button button-secondary button-small"
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleOpenGameDetails(game.id);
-                                  }}
-                                >
-                                  {t("games.detailsLink")}
-                                </button>
+                        return (
+                          <div key={game.id} className="schedule-game-card-shell">
+                            <PublicGameCard
+                              className="schedule-game-card"
+                              game={game}
+                              awayTeamName={awayTeamName}
+                              awayTeamLogoSrc={awayTeamLogoSrc}
+                              homeTeamName={homeTeamName}
+                              homeTeamLogoSrc={homeTeamLogoSrc}
+                              layout="schedule"
+                              avatarSize="xl"
+                              footer={
+                                <div className="table-actions">
+                                  <button
+                                    className="button button-secondary button-small"
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleOpenGameDetails(game.id);
+                                    }}
+                                  >
+                                    {t("games.detailsLink")}
+                                  </button>
+                                </div>
+                              }
+                            />
+                            <button
+                              className="schedule-card-overlay"
+                              type="button"
+                              aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
+                              onClick={() => handleOpenGameDetails(game.id)}
+                            >
+                              <span className="visually-hidden">{t("buttons.viewDetails")}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="schedule-mobile-list">
+                      {group.games.map((game) => {
+                        const {
+                          awayTeamName,
+                          awayTeamLogoSrc,
+                          homeTeamName,
+                          homeTeamLogoSrc,
+                        } = getGameDisplayData(game);
+                        const status = getGameStatusMeta(game.status);
+                        const finalGame = isFinalGame(game.status);
+                        const score = getGameScore(game);
+                        const location = getGameShortLocation(game);
+
+                        return (
+                          <div key={game.id} className="schedule-mobile-row-shell">
+                            <article className="schedule-mobile-row">
+                              <div className="schedule-mobile-row-topline">
+                                <p className="schedule-mobile-row-meta">
+                                  <span>{formatTime(game.time)}</span>
+                                  <span aria-hidden="true">•</span>
+                                  <span>{location}</span>
+                                </p>
+                                <StatusChip tone={status.tone}>{status.label}</StatusChip>
                               </div>
-                            }
-                          />
-                          <button
-                            className="schedule-card-overlay"
-                            type="button"
-                            aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
-                            onClick={() => handleOpenGameDetails(game.id)}
-                          >
-                            <span className="visually-hidden">{t("buttons.viewDetails")}</span>
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
 
-                  <div className="schedule-mobile-list">
-                    {group.games.map((game) => {
-                      const {
-                        awayTeamName,
-                        awayTeamLogoSrc,
-                        homeTeamName,
-                        homeTeamLogoSrc,
-                      } = getGameDisplayData(game);
-                      const status = getGameStatusMeta(game.status);
-                      const finalGame = isFinalGame(game.status);
-                      const score = getGameScore(game);
-                      const location = getGameShortLocation(game);
-
-                      return (
-                        <div key={game.id} className="schedule-mobile-row-shell">
-                          <article className="schedule-mobile-row">
-                            <div className="schedule-mobile-row-topline">
-                              <p className="schedule-mobile-row-meta">
-                                <span>{formatTime(game.time)}</span>
-                                <span aria-hidden="true">•</span>
-                                <span>{location}</span>
-                              </p>
-                              <StatusChip tone={status.tone}>{status.label}</StatusChip>
-                            </div>
-
-                            <div className="schedule-mobile-row-body">
-                              <div className="schedule-mobile-row-team-list">
-                                <div className="schedule-mobile-row-team">
-                                  <div className="schedule-mobile-row-team-copy">
-                                    <TeamAvatar
-                                      name={awayTeamName}
-                                      src={awayTeamLogoSrc}
-                                      size="sm"
-                                    />
-                                    <span className="schedule-mobile-row-team-name">{awayTeamName}</span>
+                              <div className="schedule-mobile-row-body">
+                                <div className="schedule-mobile-row-team-list">
+                                  <div className="schedule-mobile-row-team">
+                                    <div className="schedule-mobile-row-team-copy">
+                                      <TeamAvatar
+                                        name={awayTeamName}
+                                        src={awayTeamLogoSrc}
+                                        size="sm"
+                                      />
+                                      <span className="schedule-mobile-row-team-name">{awayTeamName}</span>
+                                    </div>
+                                    {finalGame && score ? (
+                                      <span className="schedule-mobile-row-team-score">{score.away}</span>
+                                    ) : null}
                                   </div>
-                                  {finalGame && score ? (
-                                    <span className="schedule-mobile-row-team-score">{score.away}</span>
-                                  ) : null}
+
+                                  <div className="schedule-mobile-row-team">
+                                    <div className="schedule-mobile-row-team-copy">
+                                      <TeamAvatar
+                                        name={homeTeamName}
+                                        src={homeTeamLogoSrc}
+                                        size="sm"
+                                      />
+                                      <span className="schedule-mobile-row-team-name">{homeTeamName}</span>
+                                    </div>
+                                    {finalGame && score ? (
+                                      <span className="schedule-mobile-row-team-score">{score.home}</span>
+                                    ) : null}
+                                  </div>
                                 </div>
 
-                                <div className="schedule-mobile-row-team">
-                                  <div className="schedule-mobile-row-team-copy">
-                                    <TeamAvatar
-                                      name={homeTeamName}
-                                      src={homeTeamLogoSrc}
-                                      size="sm"
-                                    />
-                                    <span className="schedule-mobile-row-team-name">{homeTeamName}</span>
-                                  </div>
-                                  {finalGame && score ? (
-                                    <span className="schedule-mobile-row-team-score">{score.home}</span>
-                                  ) : null}
+                                <div className="schedule-mobile-row-summary" />
+                              </div>
+
+                              <div className="schedule-mobile-row-footer">
+                                <div className="schedule-mobile-admin-actions">
+                                  <button
+                                    className="button button-secondary button-small"
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleOpenGameDetails(game.id);
+                                    }}
+                                  >
+                                    {t("games.detailsLink")}
+                                  </button>
                                 </div>
                               </div>
-
-                              <div className="schedule-mobile-row-summary" />
-                            </div>
-
-                            <div className="schedule-mobile-row-footer">
-                              <div className="schedule-mobile-admin-actions">
-                                <button
-                                  className="button button-secondary button-small"
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleOpenGameDetails(game.id);
-                                  }}
-                                >
-                                  {t("games.detailsLink")}
-                                </button>
-                              </div>
-                            </div>
-                          </article>
-                          <button
-                            className="schedule-mobile-row-overlay"
-                            type="button"
-                            aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
-                            onClick={() => handleOpenGameDetails(game.id)}
-                          >
-                            <span className="visually-hidden">{t("buttons.viewDetails")}</span>
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </SurfaceCard>
+                            </article>
+                            <button
+                              className="schedule-mobile-row-overlay"
+                              type="button"
+                              aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
+                              onClick={() => handleOpenGameDetails(game.id)}
+                            >
+                              <span className="visually-hidden">{t("buttons.viewDetails")}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </SurfaceCard>
+                </div>
               ))}
             </div>
           )}
