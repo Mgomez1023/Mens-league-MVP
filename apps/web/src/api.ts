@@ -12,6 +12,8 @@ export type Team = {
   logo_url?: string | null;
 };
 
+export type UserRole = "admin" | "manager";
+
 export type Game = {
   id: number;
   date: string;
@@ -55,6 +57,9 @@ export type GameLineup = {
   game_date: string;
   matchup: string;
   minimum_required_games: number;
+  can_manage_both_teams: boolean;
+  visible_team_ids: number[];
+  editable_team_ids: number[];
   selected_player_ids: number[];
   home_team: GameLineupTeam;
   away_team: GameLineupTeam;
@@ -111,11 +116,13 @@ export class AuthError extends Error {
 
 export class PermissionError extends Error {
   status: number;
+  detail?: string;
 
-  constructor(message = "Forbidden", status = 403) {
+  constructor(message = "Forbidden", status = 403, detail?: string) {
     super(message);
     this.name = "PermissionError";
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -169,6 +176,9 @@ export type TokenClaims = {
   exp?: number;
   is_admin?: boolean;
   role?: string;
+  team_id?: number | null;
+  team_name?: string | null;
+  email?: string | null;
 };
 
 export function getTokenClaims(token = getToken() ?? ""): TokenClaims | null {
@@ -188,6 +198,16 @@ export function getTokenClaims(token = getToken() ?? ""): TokenClaims | null {
 
 export function isAdminClaim(claims: TokenClaims | null) {
   return claims?.is_admin === true || claims?.role === "admin";
+}
+
+export function isManagerClaim(claims: TokenClaims | null) {
+  return claims?.role === "manager";
+}
+
+export function getRoleClaim(claims: TokenClaims | null): UserRole | null {
+  if (isAdminClaim(claims)) return "admin";
+  if (isManagerClaim(claims)) return "manager";
+  return null;
 }
 
 export async function login(email: string, password: string) {
@@ -212,28 +232,36 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
 
   const res = await fetch(url, { ...options, headers });
 
+  let detail: string | undefined;
+  const readDetail = async () => {
+    if (detail !== undefined) return detail;
+    try {
+      const data = await res.clone().json();
+      if (data && typeof data.detail === "string") {
+        detail = data.detail;
+        return detail;
+      }
+    } catch {
+      // ignore
+    }
+    try {
+      const text = await res.text();
+      detail = text || undefined;
+    } catch {
+      detail = undefined;
+    }
+    return detail;
+  };
+
   if (res.status === 401) {
     notifyUnauthorized();
     throw new AuthError("Unauthorized", res.status);
   }
   if (res.status === 403) {
-    throw new PermissionError("Forbidden", res.status);
+    throw new PermissionError((await readDetail()) || "Forbidden", res.status, detail);
   }
   if (!res.ok) {
-    let detail: string | undefined;
-    try {
-      const data = await res.clone().json();
-      if (data && typeof data.detail === "string") {
-        detail = data.detail;
-      }
-    } catch {
-      try {
-        const text = await res.text();
-        if (text) detail = text;
-      } catch {
-        // ignore
-      }
-    }
+    detail = await readDetail();
     throw new ApiError(detail || "Request failed", res.status, detail);
   }
 

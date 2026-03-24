@@ -29,6 +29,7 @@ import { getRecord, sortStandings } from "../utils/league";
 type TeamsPageProps = {
   authed: boolean;
   isAdmin: boolean;
+  teamId: number | null;
   onAuthError: () => void;
 };
 
@@ -37,7 +38,7 @@ const emptyForm = {
   home_field: "",
 };
 
-export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPageProps) {
+export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: TeamsPageProps) {
   const { t } = useTranslation();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +112,7 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
   }, [authed, isAdmin, onAuthError, t]);
 
   const orderedTeams = useMemo(() => sortStandings(teams), [teams]);
+  const managedTeamId = authed && !isAdmin ? teamId : null;
 
   const handleFormChange = (field: keyof typeof emptyForm, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -295,6 +297,9 @@ export default function TeamsPage({ authed, isAdmin, onAuthError }: TeamsPagePro
                     <Link className="button button-secondary button-small" to={`/teams/${team.id}/roster`}>
                       {t("buttons.viewRoster")}
                     </Link>
+                    {managedTeamId === team.id ? (
+                      <span className="team-manager-badge">{t("auth.managerForThisTeam")}</span>
+                    ) : null}
                     {isAdmin && (
                       <button
                         className="button button-danger button-small"

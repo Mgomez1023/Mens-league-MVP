@@ -10,6 +10,7 @@ import "../styles/dashboard.css";
 type DashboardLayoutProps = {
   authed: boolean;
   isAdmin: boolean;
+  teamName: string | null;
   onLogout: () => void;
 };
 
@@ -21,18 +22,29 @@ function SocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]["ic
   return <FaYoutube aria-hidden="true" />;
 }
 
-export default function DashboardLayout({ authed, isAdmin, onLogout }: DashboardLayoutProps) {
+export default function DashboardLayout({
+  authed,
+  isAdmin,
+  teamName,
+  onLogout,
+}: DashboardLayoutProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
-
-  const publicLinks = [
-    { to: "/", label: t("nav.home"), end: true },
+  const publicLinks: Array<{ to: string; label: string; end?: boolean }> = [
     { to: "/games", label: t("nav.games") },
+    { to: "/rules", label: t("nav.rules") },
     { to: "/standings", label: t("nav.standings") },
     { to: "/teams", label: t("nav.teams") },
     { to: "/posts", label: t("nav.posts") },
   ];
+  const signedInLabel = authed
+    ? isAdmin
+      ? t("auth.signedInAsAdmin")
+      : t("auth.signedInAsManager", {
+          team: teamName || t("common.team"),
+        })
+    : null;
 
   const adminLinks = [
     { to: "/games", label: t("admin.manageGames") },
@@ -93,6 +105,7 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
               </div>
             </NavLink>
           </div>
+          
 
           <nav className="app-nav app-nav-desktop" aria-label={t("aria.primaryNavigation")}>
             {publicLinks.map((link) => (
@@ -134,6 +147,7 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
             >
               {t("nav.menu")}
             </button>
+            {signedInLabel ? <span className="session-indicator desktop-only">{signedInLabel}</span> : null}
             {isAdmin && (
               <button
                 className="admin-menu-trigger desktop-only"
@@ -143,6 +157,11 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
                 onClick={() => setAdminMenuOpen((prev) => !prev)}
               >
                 {t("admin.title")}
+              </button>
+            )}
+            {authed && (
+              <button className="button button-secondary desktop-only" type="button" onClick={onLogout}>
+                {t("auth.logout")}
               </button>
             )}
           </div>
@@ -211,6 +230,15 @@ export default function DashboardLayout({ authed, isAdmin, onLogout }: Dashboard
             </NavLink>
           </div>        
         </div>
+        
+        {signedInLabel ? (
+          <div className="drawer-section">
+            <p className="drawer-title">{t("auth.currentSession")}</p>
+            <p className="drawer-session-indicator">{signedInLabel}</p>
+          </div>
+        ) : null}
+
+        <div className="drawer-divider" aria-hidden="true" />
 
         <div className="drawer-section">
           <nav className="drawer-nav" aria-label={t("aria.mobilePrimary")}>

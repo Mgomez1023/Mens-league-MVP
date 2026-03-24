@@ -9,6 +9,7 @@
   "nav": {
     "home": "Home",
     "games": "Schedule",
+    "rules": "Rules",
     "standings": "Standings",
     "teams": "Teams",
     "posts": "News",
@@ -23,10 +24,15 @@
     "commissionerTools": "Commissioner tools"
   },
   "auth": {
-    "login": "Admin Login",
+    "login": "League Login",
     "logout": "Log Out",
-    "invalidCredentials": "Invalid admin credentials.",
-    "adminAccessRequired": "Admin access required."
+    "invalidCredentials": "Invalid email or password.",
+    "adminAccessRequired": "Admin access required.",
+    "restrictedAccess": "You do not have permission to do that.",
+    "currentSession": "Current session",
+    "signedInAsAdmin": "Signed in as Admin",
+    "signedInAsManager": "Signed in as Manager - {{team}}",
+    "managerForThisTeam": "Your team"
   },
   "buttons": {
     "save": "Save",
@@ -126,9 +132,9 @@
     "adminCopyGuest": "Commissioner tools and posting access."
   },
   "landing": {
-    "title": "Admin login",
+    "title": "League login",
     "heading": "League Login",
-    "emailPlaceholder": "commissioner@example.com",
+    "emailPlaceholder": "name@league.local",
     "passwordPlaceholder": "Enter password",
     "signingIn": "Signing in..."
   },
@@ -139,7 +145,7 @@
     "heroEstablished": "EST. 1975",
     "heroImageAlt": "Baseball players under stadium lights",
     "about": "About",
-    "aboutText": "Benito Juarez Men's League is a community baseball league built around competitive weekend games, local teams, and a long-running Chicago baseball tradition.",
+    "aboutText": "Established in 1975, BJMBL is a competitive nonprofit amateur baseball league in the heart of La Villita neighborhood in Chicago, IL. Our league brings together talented players, passionate fans, and local families each season, creating positive engagement and pride to win!",
     "loading": "Loading league dashboard...",
     "loadError": "Unable to load the league dashboard right now.",
     "upcomingGames": "Upcoming games",
@@ -167,6 +173,15 @@
     "seasonNote": "Season note",
     "seasonNoteText": "This portal is designed for quick checks at the field: schedule first, standings second, announcements close at hand, and commissioner tools available without leaving the main workflow pages.",
     "standingsSummary": "W {{wins}} • L {{losses}}"
+  },
+  "rules": {
+    "eyebrow": "League handbook",
+    "title": "League Rules",
+    "description": "This page uses a structured placeholder draft so the official league rules can be dropped in later without rebuilding the layout.",
+    "lastUpdatedLabel": "Last updated",
+    "featuredLabel": "Important rule",
+    "contentsTitle": "Table of contents",
+    "contentsDescription": "Jump to a section below."
   },
   "teams": {
     "eyebrow": "Teams and rosters",

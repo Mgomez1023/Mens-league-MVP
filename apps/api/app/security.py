@@ -14,12 +14,19 @@ def create_access_token(
     secret: str,
     alg: str,
     expires_min: int,
+    role: str,
+    team_id: int | None = None,
+    team_name: str | None = None,
+    email: str | None = None,
     is_admin: bool = False,
 ) -> str:
     payload = {
         "sub": str(user_id),
         "exp": datetime.utcnow() + timedelta(minutes=expires_min),
         "is_admin": is_admin,
-        "role": "admin" if is_admin else "user",
+        "role": role,
+        "team_id": team_id,
+        "team_name": team_name,
+        "email": email,
     }
     return jwt.encode(payload, secret, algorithm=alg)

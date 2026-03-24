@@ -44,6 +44,7 @@ import {
 type RosterPageProps = {
   authed: boolean;
   isAdmin: boolean;
+  managerTeamId: number | null;
   onAuthError: () => void;
 };
 
@@ -100,7 +101,7 @@ function sortRosterPlayers(players: Player[]) {
   });
 }
 
-export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageProps) {
+export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError }: RosterPageProps) {
   const { t } = useTranslation();
   const { teamId } = useParams();
   const teamNumericId = Number(teamId);
@@ -261,6 +262,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
   const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 3), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 3), [games]);
   const teamDisplayName = team?.name ?? t("common.teamFallback", { id: teamId ?? "" });
+  const canManageRoster = authed && (isAdmin || managerTeamId === teamNumericId);
 
   const updateFormImagePreview = (nextUrl: string | null) => {
     setFormImagePreview((prev) => {
@@ -384,7 +386,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
             return;
           }
           if (err instanceof PermissionError) {
-            setFormError(t("auth.adminAccessRequired"));
+            setFormError(err.detail ?? t("auth.restrictedAccess"));
             return;
           }
           saveNotice = t("roster.playerImageUploadError");
@@ -403,7 +405,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         return;
       }
       if (err instanceof PermissionError) {
-        setFormError(t("auth.adminAccessRequired"));
+        setFormError(err.detail ?? t("auth.restrictedAccess"));
         return;
       }
       if (err instanceof ApiError && err.detail) {
@@ -437,7 +439,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         return;
       }
       if (err instanceof PermissionError) {
-        setError(t("auth.adminAccessRequired"));
+        setError(err.detail ?? t("auth.restrictedAccess"));
         return;
       }
       setError(t("roster.deleteError"));
@@ -466,7 +468,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         return;
       }
       if (err instanceof PermissionError) {
-        setError(t("auth.adminAccessRequired"));
+        setError(err.detail ?? t("auth.restrictedAccess"));
         return;
       }
       setError(t("roster.importError"));
@@ -505,7 +507,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         return;
       }
       if (err instanceof PermissionError) {
-        setError(t("auth.adminAccessRequired"));
+        setError(err.detail ?? t("auth.restrictedAccess"));
         return;
       }
       if (err instanceof ApiError && err.detail) {
@@ -531,7 +533,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         }
         actions={
           <div className="inline-actions roster-page-actions">
-            {isAdmin && (
+            {canManageRoster && (
               <>
                 <button className="button button-primary" type="button" onClick={openAddModal}>
                   {t("buttons.addPlayer")}
@@ -548,19 +550,21 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
                     }}
                   />
                 </label>
-                <label className="button button-secondary file-button-inline">
-                  {uploadingLogo ? `${t("buttons.uploadLogo")}...` : t("buttons.uploadLogo")}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={uploadingLogo}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0] ?? null;
-                      event.currentTarget.value = "";
-                      void handleTeamLogoUpload(file);
-                    }}
-                  />
-                </label>
+                {isAdmin ? (
+                  <label className="button button-secondary file-button-inline">
+                    {uploadingLogo ? `${t("buttons.uploadLogo")}...` : t("buttons.uploadLogo")}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingLogo}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        event.currentTarget.value = "";
+                        void handleTeamLogoUpload(file);
+                      }}
+                    />
+                  </label>
+                ) : null}
               </>
             )}
           </div>
@@ -603,7 +607,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
             </div>
           </SurfaceCard>
 
-          {isAdmin && importResult && (
+          {canManageRoster && importResult && (
             <SurfaceCard>
               <SectionHeader title={t("roster.csvImportResults")} />
               <div className="import-results">
@@ -774,7 +778,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         </>
       )}
 
-      {isAdmin && modalOpen && (
+      {canManageRoster && modalOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <SurfaceCard className="modal-card">
             <SectionHeader
@@ -897,7 +901,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
         </div>
       )}
 
-      {isAdmin && playerDeleteTarget && (
+      {canManageRoster && playerDeleteTarget && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <SurfaceCard className="modal-card">
             <SectionHeader
@@ -949,7 +953,7 @@ export default function RosterPage({ authed, isAdmin, onAuthError }: RosterPageP
               description={teamDisplayName}
               action={
                 <div className="player-detail-header-actions">
-                  {isAdmin ? (
+                  {canManageRoster ? (
                     <button
                       className="button button-secondary button-small"
                       type="button"

@@ -204,6 +204,39 @@ body {
   justify-content: flex-end;
 }
 
+.session-indicator,
+.drawer-session-indicator,
+.team-manager-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 164, 214, 0.38);
+  background: rgba(245, 251, 255, 0.72);
+  color: #214c79;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.session-indicator {
+  white-space: nowrap;
+}
+
+.drawer-session-indicator {
+  justify-content: flex-start;
+}
+
+.team-manager-badge {
+  min-height: 2rem;
+  padding-inline: 0.75rem;
+  background: rgba(232, 245, 229, 0.92);
+  border-color: rgba(92, 154, 95, 0.42);
+  color: #2f6c31;
+}
+
 .language-toggle {
   display: inline-flex;
   align-items: center;
@@ -4646,6 +4679,165 @@ body {
   color: #fffaf5;
 }
 
+.rules-updated-pill {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 12rem;
+  padding: 0.55rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(99, 173, 221, 0.28);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 247, 252, 0.98));
+  box-shadow: 0 12px 24px rgba(12, 24, 36, 0.08);
+}
+
+.rules-updated-pill-title {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.rules-updated-pill span {
+  color: #5f7384;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rules-updated-pill strong {
+  color: #122030;
+  font-size: 1rem;
+}
+
+.rules-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.rules-section-anchor {
+  scroll-margin-top: 7rem;
+}
+
+.rules-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: var(--space-5);
+}
+
+.rules-section-heading h2 {
+  margin: 0;
+  color: #122030;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  letter-spacing: 0.03em;
+}
+
+.rules-section-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid rgba(99, 173, 221, 0.3);
+  background: #ffffff;
+  color: #2d90cb;
+  font-size: 0.92rem;
+  font-weight: 800;
+  box-shadow: 0 8px 18px rgba(12, 24, 36, 0.08);
+}
+
+.rules-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.rules-body p,
+.rules-list {
+  margin: 0;
+}
+
+.rules-body p {
+  color: #122030;
+  line-height: 1.7;
+}
+
+.rules-body-accent p {
+  color: rgba(247, 251, 255, 0.92);
+}
+
+.rules-list {
+  padding-left: 1.25rem;
+  color: #122030;
+  line-height: 1.65;
+}
+
+.rules-list li + li {
+  margin-top: 0.45rem;
+}
+
+.rules-body-accent .rules-list {
+  color: rgba(247, 251, 255, 0.94);
+}
+
+.rules-toc-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.rules-toc-link {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(99, 173, 221, 0.24);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 247, 252, 0.98));
+  color: #122030;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 12px 24px rgba(12, 24, 36, 0.06);
+  transition:
+    transform 0.15s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.rules-toc-link:hover,
+.rules-toc-link:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(99, 173, 221, 0.46);
+  box-shadow: 0 16px 28px rgba(12, 24, 36, 0.1);
+}
+
+.rules-featured-kicker {
+  margin: 0 0 0.55rem;
+  color: #5f7384;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rules-toc-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(91, 181, 230, 0.14);
+  color: #2d90cb;
+  font-size: 0.84rem;
+}
+
 @media (max-width: 900px) {
   .standings-table {
     border-spacing: 0 0.7rem;
@@ -4658,9 +4850,25 @@ body {
   .standings-cell-team {
     min-width: 14rem;
   }
+
+  .rules-toc-list {
+    grid-template-columns: 1fr;
+  }
+
+  .rules-section-heading {
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 640px) {
+  .rules-updated-pill {
+    min-width: 0;
+  }
+
+  .rules-toc-link {
+    padding: 0.9rem;
+  }
+
   .schedule-list-desktop {
     display: grid;
     grid-template-columns: 1fr;

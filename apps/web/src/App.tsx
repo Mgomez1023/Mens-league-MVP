@@ -8,27 +8,42 @@ import GamesPage from "./pages/GamesPage";
 import RosterPage from "./pages/RosterPage";
 import PostsPage from "./pages/PostsPage";
 import StandingsPage from "./pages/StandingsPage";
-import { clearToken, getTokenClaims, isAdminClaim, onUnauthorized, getToken } from "./api";
+import RulesPage from "./pages/RulesPage";
+import { clearToken, getRoleClaim, getTokenClaims, isAdminClaim, onUnauthorized, getToken } from "./api";
+import type { UserRole } from "./api";
 
 type AuthState = {
   authed: boolean;
+  role: UserRole | null;
   isAdmin: boolean;
+  teamId: number | null;
+  teamName: string | null;
+  email: string | null;
 };
 
 function readAuthState(): AuthState {
   const token = getToken();
-  if (!token) return { authed: false, isAdmin: false };
+  if (!token) {
+    return { authed: false, role: null, isAdmin: false, teamId: null, teamName: null, email: null };
+  }
   const claims = getTokenClaims(token);
   if (!claims) {
     clearToken();
-    return { authed: false, isAdmin: false };
+    return { authed: false, role: null, isAdmin: false, teamId: null, teamName: null, email: null };
   }
   const now = Math.floor(Date.now() / 1000);
   if (claims?.exp && claims.exp < now) {
     clearToken();
-    return { authed: false, isAdmin: false };
+    return { authed: false, role: null, isAdmin: false, teamId: null, teamName: null, email: null };
   }
-  return { authed: true, isAdmin: isAdminClaim(claims) };
+  return {
+    authed: true,
+    role: getRoleClaim(claims),
+    isAdmin: isAdminClaim(claims),
+    teamId: claims.team_id ?? null,
+    teamName: claims.team_name ?? null,
+    email: claims.email ?? null,
+  };
 }
 
 export default function App() {
@@ -37,13 +52,13 @@ export default function App() {
 
   const handleLogout = () => {
     clearToken();
-    setAuth({ authed: false, isAdmin: false });
+    setAuth({ authed: false, role: null, isAdmin: false, teamId: null, teamName: null, email: null });
     navigate("/", { replace: true });
   };
 
   const handleAuthError = () => {
     clearToken();
-    setAuth({ authed: false, isAdmin: false });
+    setAuth({ authed: false, role: null, isAdmin: false, teamId: null, teamName: null, email: null });
     navigate("/", { replace: true });
   };
 
@@ -54,7 +69,7 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onUnauthorized(() => {
-      setAuth({ authed: false, isAdmin: false });
+      setAuth({ authed: false, role: null, isAdmin: false, teamId: null, teamName: null, email: null });
       navigate("/", { replace: true });
     });
     return unsubscribe;
@@ -68,16 +83,23 @@ export default function App() {
           <DashboardLayout
             authed={auth.authed}
             isAdmin={auth.isAdmin}
+            teamName={auth.teamName}
             onLogout={handleLogout}
           />
         }
       >
         <Route index element={<HomePage />} />
         <Route path="standings" element={<StandingsPage />} />
+        <Route path="rules" element={<RulesPage />} />
         <Route
           path="teams"
           element={
-            <TeamsPage authed={auth.authed} isAdmin={auth.isAdmin} onAuthError={handleAuthError} />
+            <TeamsPage
+              authed={auth.authed}
+              isAdmin={auth.isAdmin}
+              teamId={auth.teamId}
+              onAuthError={handleAuthError}
+            />
           }
         />
         <Route
@@ -96,6 +118,8 @@ export default function App() {
             <GamesPage
               authed={auth.authed}
               isAdmin={auth.isAdmin}
+              role={auth.role}
+              managerTeamId={auth.teamId}
               onAuthError={handleAuthError}
             />
           }
@@ -107,7 +131,12 @@ export default function App() {
         <Route
           path="teams/:teamId/roster"
           element={
-            <RosterPage authed={auth.authed} isAdmin={auth.isAdmin} onAuthError={handleAuthError} />
+            <RosterPage
+              authed={auth.authed}
+              isAdmin={auth.isAdmin}
+              managerTeamId={auth.teamId}
+              onAuthError={handleAuthError}
+            />
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />

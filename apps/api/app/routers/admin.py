@@ -9,7 +9,15 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..deps import get_db, get_current_admin
+from ..deps import (
+    get_current_admin,
+    get_current_user,
+    get_db,
+    get_game_for_user,
+    get_team_or_404,
+    is_admin_user,
+    require_team_access,
+)
 from ..models import Game, Player, PlayerAppearance, Season, Team, User
 from ..schemas import EligibilityReportItem, GameLineupOut, GameLineupUpdate
 from ..standings import compute_team_records
@@ -111,15 +119,21 @@ def serialize_lineup_team(team: Team, players: list[Player], games_played_map: d
     }
 
 
-def build_game_lineup_payload(game_id: int, db: Session):
-    game = db.get(Game, game_id)
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
+def build_lineup_scope(game: Game, user: User):
+    if is_admin_user(user):
+        visible_team_ids = [game.away_team_id, game.home_team_id]
+        return True, visible_team_ids, visible_team_ids
+    if user.team_id not in {game.home_team_id, game.away_team_id}:
+        raise HTTPException(status_code=403, detail="You do not have access to this game lineup")
+    return False, [user.team_id], [user.team_id]
 
-    home_team = db.get(Team, game.home_team_id)
-    away_team = db.get(Team, game.away_team_id)
-    if not home_team or not away_team:
-        raise HTTPException(status_code=404, detail="Team not found")
+
+def build_game_lineup_payload(game_id: int, db: Session, user: User):
+    game = get_game_for_user(game_id, user, db)
+
+    home_team = get_team_or_404(game.home_team_id, db)
+    away_team = get_team_or_404(game.away_team_id, db)
+    can_manage_both_teams, visible_team_ids, editable_team_ids = build_lineup_scope(game, user)
 
     players = (
         db.query(Player)
@@ -135,6 +149,7 @@ def build_game_lineup_payload(game_id: int, db: Session):
         for (player_id,) in (
             db.query(PlayerAppearance.player_id)
             .filter(PlayerAppearance.game_id == game_id)
+            .filter(PlayerAppearance.team_id.in_(visible_team_ids))
             .order_by(PlayerAppearance.player_id.asc())
             .all()
         )
@@ -148,9 +163,20 @@ def build_game_lineup_payload(game_id: int, db: Session):
         "game_date": game.date,
         "matchup": f"{away_team.name} vs {home_team.name}",
         "minimum_required_games": settings.playoff_minimum_games,
+        "can_manage_both_teams": can_manage_both_teams,
+        "visible_team_ids": visible_team_ids,
+        "editable_team_ids": editable_team_ids,
         "selected_player_ids": selected_player_ids,
-        "home_team": serialize_lineup_team(home_team, home_players, home_games_played_map),
-        "away_team": serialize_lineup_team(away_team, away_players, away_games_played_map),
+        "home_team": serialize_lineup_team(
+            home_team,
+            home_players if game.home_team_id in visible_team_ids else [],
+            home_games_played_map,
+        ),
+        "away_team": serialize_lineup_team(
+            away_team,
+            away_players if game.away_team_id in visible_team_ids else [],
+            away_games_played_map,
+        ),
     }
 
 
@@ -323,24 +349,22 @@ def list_games(_: User = Depends(get_current_admin), db: Session = Depends(get_d
 @router.get("/games/{game_id}/lineup", response_model=GameLineupOut)
 def get_game_lineup(
     game_id: int,
-    _: User = Depends(get_current_admin),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return build_game_lineup_payload(game_id, db)
+    return build_game_lineup_payload(game_id, db, user)
 
 
 @router.put("/games/{game_id}/lineup", response_model=GameLineupOut)
 def save_game_lineup(
     game_id: int,
     payload: GameLineupUpdate,
-    _: User = Depends(get_current_admin),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    game = db.get(Game, game_id)
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
-
-    allowed_team_ids = {game.home_team_id, game.away_team_id}
+    game = get_game_for_user(game_id, user, db)
+    _, _, editable_team_ids = build_lineup_scope(game, user)
+    allowed_team_ids = set(editable_team_ids)
     requested_player_ids = sorted(set(payload.player_ids))
     players = []
     if requested_player_ids:
@@ -358,12 +382,16 @@ def save_game_lineup(
         if invalid_players:
             raise HTTPException(
                 status_code=400,
-                detail="Lineup players must belong to one of the teams in this game",
+                detail="Lineup players must belong to a team you can manage for this game",
             )
 
-    db.query(PlayerAppearance).filter(PlayerAppearance.game_id == game_id).delete(
-        synchronize_session=False
-    )
+    appearance_query = db.query(PlayerAppearance).filter(PlayerAppearance.game_id == game_id)
+    if is_admin_user(user):
+        appearance_query.delete(synchronize_session=False)
+    else:
+        appearance_query.filter(PlayerAppearance.team_id.in_(editable_team_ids)).delete(
+            synchronize_session=False
+        )
     for player in players:
         db.add(
             PlayerAppearance(
@@ -374,7 +402,7 @@ def save_game_lineup(
         )
 
     commit_or_raise(db)
-    return build_game_lineup_payload(game_id, db)
+    return build_game_lineup_payload(game_id, db, user)
 
 
 @router.get("/eligibility-report", response_model=list[EligibilityReportItem])
@@ -530,12 +558,11 @@ def delete_all_games(
 @router.get("/teams/{team_id}/players")
 def list_team_players(
     team_id: int,
-    _: User = Depends(get_current_admin),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    team = db.get(Team, team_id)
-    if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
+    require_team_access(user, team_id)
+    get_team_or_404(team_id, db)
     games_played_map = build_games_played_map(db, team_id)
     players = (
         db.query(Player)
@@ -550,12 +577,11 @@ def list_team_players(
 def create_player(
     team_id: int,
     payload: PlayerCreate,
-    _: User = Depends(get_current_admin),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    team = db.get(Team, team_id)
-    if not team:
-        raise HTTPException(status_code=404, detail="Team not found")
+    require_team_access(user, team_id)
+    get_team_or_404(team_id, db)
 
     first_name = payload.first_name.strip()
     last_name = payload.last_name.strip()
@@ -593,12 +619,14 @@ def create_player(
 def update_player(
     player_id: int,
     payload: PlayerUpdate,
-    _: User = Depends(get_current_admin),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     player = db.get(Player, player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
+
+    require_team_access(user, player.team_id)
 
     next_team_id = payload.team_id if payload.team_id is not None else player.team_id
     next_first_name = payload.first_name.strip() if payload.first_name is not None else player.first_name
@@ -607,9 +635,8 @@ def update_player(
         raise HTTPException(status_code=400, detail="First and last name are required")
 
     if payload.team_id is not None:
-        team = db.get(Team, payload.team_id)
-        if not team:
-            raise HTTPException(status_code=404, detail="Team not found")
+        require_team_access(user, payload.team_id)
+        get_team_or_404(payload.team_id, db)
         player.team_id = payload.team_id
 
     duplicate = (
@@ -647,12 +674,14 @@ def update_player(
 def upload_player_image(
     player_id: int,
     file: UploadFile = File(...),
-    _: User = Depends(get_current_admin),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     player = db.get(Player, player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
+
+    require_team_access(user, player.team_id)
 
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Invalid image type")
@@ -692,12 +721,13 @@ def upload_player_image(
 @router.delete("/players/{player_id}")
 def delete_player(
     player_id: int,
-    _: User = Depends(get_current_admin),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     player = db.get(Player, player_id)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
+    require_team_access(user, player.team_id)
     db.query(PlayerAppearance).filter(PlayerAppearance.player_id == player_id).delete(
         synchronize_session=False
     )

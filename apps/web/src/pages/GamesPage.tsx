@@ -19,7 +19,7 @@ import {
   saveGameLineup,
   updateGame,
 } from "../api";
-import type { Game, GameLineup, ImportGamesResult, Team } from "../api";
+import type { Game, GameLineup, ImportGamesResult, Team, UserRole } from "../api";
 import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import { PublicGameCard } from "../components/PublicGameCard";
 import {
@@ -48,6 +48,8 @@ import {
 type GamesPageProps = {
   authed: boolean;
   isAdmin: boolean;
+  role: UserRole | null;
+  managerTeamId: number | null;
   onAuthError: () => void;
 };
 
@@ -62,7 +64,13 @@ const emptyForm = {
   away_score: "",
 };
 
-export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPageProps) {
+export default function GamesPage({
+  authed,
+  isAdmin,
+  role,
+  managerTeamId,
+  onAuthError,
+}: GamesPageProps) {
   const { t } = useTranslation();
   const [teams, setTeams] = useState<Team[]>([]);
   const [games, setGames] = useState<Game[]>([]);
@@ -194,6 +202,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
   }, [authed, isAdmin, onAuthError, t]);
 
   const teamMap = useMemo(() => buildTeamMap(teams), [teams]);
+  const isManager = authed && role === "manager" && managerTeamId != null;
 
   const filteredGames = useMemo(() => {
     const today = new Date();
@@ -237,6 +246,12 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
     [games, selectedGameId],
   );
   const lineupSelectedSet = useMemo(() => new Set(lineupSelectedIds), [lineupSelectedIds]);
+  const lineupTeams = useMemo(() => {
+    if (!lineupState) return [];
+    return [lineupState.away_team, lineupState.home_team].filter((team) =>
+      lineupState.visible_team_ids.includes(team.team_id),
+    );
+  }, [lineupState]);
 
   useEffect(() => {
     if (selectedGameId != null && !selectedGame) {
@@ -273,7 +288,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
           return;
         }
         if (err instanceof PermissionError) {
-          setLineupError(t("auth.adminAccessRequired"));
+          setLineupError(err.detail ?? t("auth.restrictedAccess"));
           return;
         }
         if (err instanceof ApiError && err.detail) {
@@ -308,6 +323,13 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
       homeTeamLogoSrc: home?.logo_url ? resolveApiUrl(home.logo_url) : null,
     };
   };
+
+  const canManageLineupForGame = (game: Game) =>
+    authed &&
+    (isAdmin ||
+      (isManager &&
+        managerTeamId != null &&
+        [game.home_team_id, game.away_team_id].includes(managerTeamId)));
 
   const handleBrowseScheduleToggle = () => {
     setBrowseScheduleOpen((prev) => {
@@ -569,7 +591,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         return;
       }
       if (err instanceof PermissionError) {
-        setLineupError(t("auth.adminAccessRequired"));
+        setLineupError(err.detail ?? t("auth.restrictedAccess"));
         return;
       }
       if (err instanceof ApiError && err.detail) {
@@ -770,12 +792,19 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                             homeTeamLogoSrc={homeTeamLogoSrc}
                             layout="schedule"
                             avatarSize="xl"
-                            detailLabel={t("games.detailsLink")}
                             footer={
-                              isAdmin ? (
-                                <div className="table-actions">
-                                </div>
-                              ) : null
+                              <div className="table-actions">
+                                <button
+                                  className="button button-secondary button-small"
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleOpenGameDetails(game.id);
+                                  }}
+                                >
+                                  {t("games.detailsLink")}
+                                </button>
+                              </div>
                             }
                           />
                           <button
@@ -851,13 +880,18 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                             </div>
 
                             <div className="schedule-mobile-row-footer">
-                              <span className="schedule-mobile-row-detail-button" aria-hidden="true">
-                                {t("games.detailsLink")}
-                              </span>
-                              {isAdmin ? (
-                                <div className="schedule-mobile-admin-actions">
-                                </div>
-                              ) : null}
+                              <div className="schedule-mobile-admin-actions">
+                                <button
+                                  className="button button-secondary button-small"
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleOpenGameDetails(game.id);
+                                  }}
+                                >
+                                  {t("games.detailsLink")}
+                                </button>
+                              </div>
                             </div>
                           </article>
                           <button
@@ -1124,7 +1158,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         </div>
       )}
 
-      {isAdmin && lineupGame && (
+      {lineupGame && (
         <div
           className="modal-backdrop"
           role="dialog"
@@ -1167,7 +1201,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
                 </div>
 
                 <div className="lineup-columns">
-                  {[lineupState.away_team, lineupState.home_team].map((team) => (
+                  {lineupTeams.map((team) => (
                     <section className="lineup-team-panel" key={team.team_id}>
                       <div className="lineup-team-panel-header">
                         <h3>{team.team_name}</h3>
@@ -1252,7 +1286,7 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
         }
         onClose={handleCloseGameDetails}
         footer={
-          isAdmin && selectedGame ? (
+          selectedGame && canManageLineupForGame(selectedGame) ? (
             <>
               <button
                 className="button button-primary"
@@ -1264,23 +1298,27 @@ export default function GamesPage({ authed, isAdmin, onAuthError }: GamesPagePro
               >
                 {t("buttons.inputLineup")}
               </button>
-              <button
-                className="button button-secondary"
-                type="button"
-                onClick={handleEditFromDetails}
-              >
-                {t("games.modal.editGame")}
-              </button>
-              <button
-                className="button button-danger"
-                type="button"
-                onClick={() => {
-                  void handleDeleteFromDetails();
-                }}
-                disabled={deletingId === selectedGame.id}
-              >
-                {deletingId === selectedGame.id ? t("common.deleteInProgress") : t("games.modal.deleteGame")}
-              </button>
+              {isAdmin ? (
+                <>
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    onClick={handleEditFromDetails}
+                  >
+                    {t("games.modal.editGame")}
+                  </button>
+                  <button
+                    className="button button-danger"
+                    type="button"
+                    onClick={() => {
+                      void handleDeleteFromDetails();
+                    }}
+                    disabled={deletingId === selectedGame.id}
+                  >
+                    {deletingId === selectedGame.id ? t("common.deleteInProgress") : t("games.modal.deleteGame")}
+                  </button>
+                </>
+              ) : null}
             </>
           ) : null
         }

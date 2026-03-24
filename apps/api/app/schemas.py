@@ -38,6 +38,9 @@ class GameLineupOut(BaseModel):
     game_date: datetime.date
     matchup: str
     minimum_required_games: int
+    can_manage_both_teams: bool
+    visible_team_ids: list[int]
+    editable_team_ids: list[int]
     selected_player_ids: list[int]
     home_team: LineupTeamOut
     away_team: LineupTeamOut

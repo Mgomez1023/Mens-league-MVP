@@ -9,6 +9,7 @@
   "nav": {
     "home": "Inicio",
     "games": "Calendario",
+    "rules": "Reglas",
     "standings": "Posiciones",
     "teams": "Equipos",
     "posts": "Noticias recientes",
@@ -23,10 +24,15 @@
     "commissionerTools": "Herramientas del comisionado"
   },
   "auth": {
-    "login": "Acceso admin",
+    "login": "Acceso de la liga",
     "logout": "Cerrar sesión",
-    "invalidCredentials": "Credenciales de administrador inválidas.",
-    "adminAccessRequired": "Se requiere acceso de administrador."
+    "invalidCredentials": "Correo o contraseña inválidos.",
+    "adminAccessRequired": "Se requiere acceso de administrador.",
+    "restrictedAccess": "No tienes permiso para hacer eso.",
+    "currentSession": "Sesión actual",
+    "signedInAsAdmin": "Sesión iniciada como administrador",
+    "signedInAsManager": "Sesión iniciada como manager - {{team}}",
+    "managerForThisTeam": "Tu equipo"
   },
   "buttons": {
     "save": "Guardar",
@@ -126,9 +132,9 @@
     "adminCopyGuest": "Herramientas del comisionado y acceso para publicar."
   },
   "landing": {
-    "title": "Acceso admin",
+    "title": "Acceso de la liga",
     "heading": "Ingreso de la liga",
-    "emailPlaceholder": "commissioner@example.com",
+    "emailPlaceholder": "nombre@league.local",
     "passwordPlaceholder": "Ingresa la contraseña",
     "signingIn": "Iniciando sesión..."
   },
@@ -139,7 +145,7 @@
     "heroEstablished": "DESDE 1975",
     "heroImageAlt": "Jugadores de béisbol bajo las luces del estadio",
     "about": "Acerca de",
-    "aboutText": "La Liga Benito Juarez es una liga comunitaria de béisbol construida alrededor de juegos competitivos de fin de semana, equipos locales y una larga tradición beisbolera en Chicago.",
+    "aboutText": "Fundada en 1975, la BJMBL es una liga amateur de béisbol competitiva y sin fines de lucro en el corazón del barrio de La Villita en Chicago, Illinois. Nuestra liga reúne cada temporada a jugadores talentosos, aficionados apasionados y familias de la comunidad, fomentando una participación positiva y el orgullo por ganar!",
     "loading": "Cargando panel de la liga...",
     "loadError": "No se pudo cargar el panel de la liga en este momento.",
     "upcomingGames": "Próximos juegos",
@@ -167,6 +173,15 @@
     "seasonNote": "Nota de temporada",
     "seasonNoteText": "Este portal está diseñado para consultas rápidas en el campo: primero el calendario, luego las posiciones, anuncios siempre a la mano y herramientas del comisionado disponibles sin salir de las páginas principales.",
     "standingsSummary": "G {{wins}} • P {{losses}}"
+  },
+  "rules": {
+    "eyebrow": "Reglamento de la liga",
+    "title": "Reglas de la liga",
+    "description": "Esta página usa un borrador estructurado para que el reglamento oficial se pueda reemplazar después sin rehacer el diseño.",
+    "lastUpdatedLabel": "Última actualización",
+    "featuredLabel": "Regla importante",
+    "contentsTitle": "Tabla de contenido",
+    "contentsDescription": "Salta directamente a una sección."
   },
   "teams": {
     "eyebrow": "Equipos y rosters",

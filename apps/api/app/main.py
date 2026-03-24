@@ -10,6 +10,7 @@ from datetime import date
 from .models import PlayerAppearance, Season, Team, User
 from .security import hash_password
 from sqlalchemy import inspect, text
+import re
 
 from .routers.auth import router as auth_router
 from .routers.admin import router as admin_router
@@ -118,6 +119,46 @@ def ensure_team_columns():
 run_startup_step(ensure_team_columns)
 
 
+def ensure_user_columns():
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    statements: list[str] = []
+    added_role = False
+    added_team_id = False
+
+    if "role" not in columns:
+        statements.append("ALTER TABLE users ADD COLUMN role VARCHAR")
+        added_role = True
+    if "team_id" not in columns:
+        statements.append("ALTER TABLE users ADD COLUMN team_id INTEGER")
+        added_team_id = True
+
+    with engine.begin() as conn:
+        for statement in statements:
+            conn.execute(text(statement))
+
+        if "role" in columns or added_role:
+            conn.execute(
+                text(
+                    "UPDATE users "
+                    "SET role = CASE WHEN is_admin = 1 THEN 'admin' ELSE 'manager' END "
+                    "WHERE role IS NULL OR role = ''"
+                )
+            )
+        if "team_id" in columns or added_team_id:
+            conn.execute(text("UPDATE users SET team_id = NULL WHERE is_admin = 1"))
+
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_manager_team "
+                "ON users(team_id) WHERE role = 'manager' AND team_id IS NOT NULL"
+            )
+        )
+
+
+run_startup_step(ensure_user_columns)
+
+
 def ensure_player_appearances_table():
     inspector = inspect(engine)
     if "player_appearances" in inspector.get_table_names():
@@ -139,7 +180,16 @@ app.add_middleware(
 
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
-def seed_admin():
+def slugify_team_name(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return slug or "team"
+
+
+def build_manager_email(team_name: str) -> str:
+    return f"{slugify_team_name(team_name)}.manager@{settings.manager_email_domain}"
+
+
+def seed_auth_users():
     db: Session = SessionLocal()
     try:
         email = settings.admin_email
@@ -150,9 +200,27 @@ def seed_admin():
             db.add(User(
                 email=email,
                 hashed_password=hash_password(password),
-                is_admin=True
+                is_admin=True,
+                role="admin",
+                team_id=None,
             ))
             db.commit()
+        else:
+            updated = False
+            if existing.hashed_password == "":
+                existing.hashed_password = hash_password(password)
+                updated = True
+            if not existing.is_admin:
+                existing.is_admin = True
+                updated = True
+            if existing.role != "admin":
+                existing.role = "admin"
+                updated = True
+            if existing.team_id is not None:
+                existing.team_id = None
+                updated = True
+            if updated:
+                db.commit()
             
         if db.query(Season).count() == 0:
             current_year = date.today().year
@@ -165,10 +233,48 @@ def seed_admin():
                 Team(name="Sox", home_field="Field 2"),
             ])
             db.commit()
+
+        teams = db.query(Team).order_by(Team.id.asc()).all()
+        for team in teams:
+            manager_email = build_manager_email(team.name)
+            manager = (
+                db.query(User)
+                .filter((User.email == manager_email) | ((User.role == "manager") & (User.team_id == team.id)))
+                .order_by(User.id.asc())
+                .first()
+            )
+            if not manager:
+                db.add(
+                    User(
+                        email=manager_email,
+                        hashed_password=hash_password(settings.manager_default_password),
+                        is_admin=False,
+                        role="manager",
+                        team_id=team.id,
+                    )
+                )
+                db.commit()
+                continue
+
+            updated = False
+            if manager.email != manager_email:
+                manager.email = manager_email
+                updated = True
+            if manager.role != "manager":
+                manager.role = "manager"
+                updated = True
+            if manager.is_admin:
+                manager.is_admin = False
+                updated = True
+            if manager.team_id != team.id:
+                manager.team_id = team.id
+                updated = True
+            if updated:
+                db.commit()
     finally:
         db.close()
 
-seed_admin()
+seed_auth_users()
 
 app.include_router(auth_router)
 app.include_router(public_router)

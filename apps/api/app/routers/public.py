@@ -9,7 +9,7 @@ from PIL import Image
 from sqlalchemy import func
 from sqlalchemy.orm import Session, aliased
 
-from ..deps import get_db, get_current_admin
+from ..deps import get_current_admin, get_current_user, get_db, require_team_access
 from ..config import settings
 from ..models import PlayerAppearance, Team, Game, Player, Post, Season, User
 from ..schemas import PlayerAppearanceSummaryOut, PostOut
@@ -320,9 +320,10 @@ def get_player_appearance_summary(player_id: int, db: Session = Depends(get_db))
 def import_roster_csv(
     team_id: int,
     file: UploadFile = File(...),
-    _: object = Depends(get_current_admin),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_team_access(user, team_id)
     team = db.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")

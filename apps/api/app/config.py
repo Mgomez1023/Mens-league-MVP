@@ -73,6 +73,8 @@ class Settings:
 
         self.admin_email = os.getenv("ADMIN_EMAIL", "admin@league.local")
         self.admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
+        self.manager_default_password = os.getenv("MANAGER_DEFAULT_PASSWORD", "manager123")
+        self.manager_email_domain = os.getenv("MANAGER_EMAIL_DOMAIN", "league.local")
         self.playoff_minimum_games = _int_env("PLAYOFF_MINIMUM_GAMES", 10)
 
 
