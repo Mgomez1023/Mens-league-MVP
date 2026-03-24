@@ -51,7 +51,12 @@ def _prepare_vercel_sqlite(database_url: str) -> str:
 
 class Settings:
     def __init__(self) -> None:
-        database_url = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+        database_url = (
+            os.getenv("DATABASE_URL")
+            or os.getenv("POSTGRES_URL")
+            or os.getenv("POSTGRES_URL_NON_POOLING")
+            or "sqlite:///./app.db"
+        )
         vercel_ephemeral_sqlite_allowed = _bool_env("ALLOW_EPHEMERAL_SQLITE_ON_VERCEL", False)
         if os.getenv("VERCEL") == "1" and database_url.startswith("sqlite") and not vercel_ephemeral_sqlite_allowed:
             raise RuntimeError(
