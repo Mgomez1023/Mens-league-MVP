@@ -17,6 +17,13 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
+def _bool_env(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _prepare_vercel_sqlite(database_url: str) -> str:
     target_path = Path("/tmp/app.db")
     if target_path.exists():
@@ -45,7 +52,14 @@ def _prepare_vercel_sqlite(database_url: str) -> str:
 class Settings:
     def __init__(self) -> None:
         database_url = os.getenv("DATABASE_URL", "sqlite:///./app.db")
-        if os.getenv("VERCEL") == "1" and database_url.startswith("sqlite"):
+        vercel_ephemeral_sqlite_allowed = _bool_env("ALLOW_EPHEMERAL_SQLITE_ON_VERCEL", False)
+        if os.getenv("VERCEL") == "1" and database_url.startswith("sqlite") and not vercel_ephemeral_sqlite_allowed:
+            raise RuntimeError(
+                "Vercel deployment requires a persistent Postgres DATABASE_URL. "
+                "SQLite on /tmp is ephemeral and will break login persistence. "
+                "Set ALLOW_EPHEMERAL_SQLITE_ON_VERCEL=1 only if you intentionally want temporary data."
+            )
+        if os.getenv("VERCEL") == "1" and database_url.startswith("sqlite") and vercel_ephemeral_sqlite_allowed:
             database_url = _prepare_vercel_sqlite(database_url)
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql://", 1)

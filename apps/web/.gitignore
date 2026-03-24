@@ -23,4 +23,23 @@ dist-ssr
 *.sln
 *.sw?
 
-# Manager Logins and Passwords
+# Manager Usernames, local login
+naranjeros.manager@league.local
+la-aduana.manager@league.local
+venenzuela.manager@league.local
+san-augustine.manager@league.local
+braves.manager@league.local
+la-barca.manager@league.local
+los-pajaros.manager@league.local
+aztecs.manager@league.local
+8-ballers.manager@league.local
+illinois-white-sox.manager@league.local
+
+#Manager Password
+manager123
+
+#Admin Usersame
+admin@league.local
+
+#Admin Password
+admin123
