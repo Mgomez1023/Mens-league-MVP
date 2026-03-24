@@ -141,12 +141,18 @@ def ensure_user_columns():
             conn.execute(
                 text(
                     "UPDATE users "
-                    "SET role = CASE WHEN is_admin = 1 THEN 'admin' ELSE 'manager' END "
+                    "SET role = CASE WHEN COALESCE(is_admin, FALSE) THEN 'admin' ELSE 'manager' END "
                     "WHERE role IS NULL OR role = ''"
                 )
             )
         if "team_id" in columns or added_team_id:
-            conn.execute(text("UPDATE users SET team_id = NULL WHERE is_admin = 1"))
+            conn.execute(
+                text(
+                    "UPDATE users "
+                    "SET team_id = NULL "
+                    "WHERE team_id IS NOT NULL AND COALESCE(is_admin, FALSE)"
+                )
+            )
 
         conn.execute(
             text(
@@ -192,6 +198,12 @@ def build_manager_email(team_name: str) -> str:
 def seed_auth_users():
     db: Session = SessionLocal()
     try:
+        inspector = inspect(engine)
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        if "role" not in user_columns or "team_id" not in user_columns:
+            print("[startup warning] seed_auth_users skipped: users table is missing role/team_id columns")
+            return
+
         email = settings.admin_email
         password = settings.admin_password
 
@@ -274,7 +286,7 @@ def seed_auth_users():
     finally:
         db.close()
 
-seed_auth_users()
+run_startup_step(seed_auth_users)
 
 app.include_router(auth_router)
 app.include_router(public_router)
