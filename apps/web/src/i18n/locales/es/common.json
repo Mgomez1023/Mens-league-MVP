@@ -319,6 +319,15 @@
       "gamesPlayedSummary_other": "{{count}} juegos totales",
       "saveButton": "Guardar alineación"
     },
+    "finalScore": {
+      "title": "Registrar marcador final",
+      "openButton": "Registrar marcador final",
+      "saveButton": "Guardar marcador final",
+      "saveSuccess": "Marcador final registrado.",
+      "saveError": "No se pudo guardar el marcador final en este momento.",
+      "validationError": "Ingresa un marcador válido y no negativo para ambos equipos.",
+      "confirmSave": "¿Registrar este marcador final? El estado del juego se cambiará a Final."
+    },
     "modal": {
       "addTitle": "Agregar juego",
       "addDescription": "Crea un enfrentamiento con equipos, fecha, campo, estado y marcador opcional.",

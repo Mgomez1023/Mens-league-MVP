@@ -21,6 +21,7 @@ import {
   updatePlayer,
 } from "../api";
 import type { Game, Player, PlayerAppearanceSummary, Team } from "../api";
+import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import {
   EmptyState,
   LoadingState,
@@ -121,6 +122,7 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [playerDeleteTarget, setPlayerDeleteTarget] = useState<Player | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const [formImageFile, setFormImageFile] = useState<File | null>(null);
   const [formImagePreview, setFormImagePreview] = useState<string | null>(null);
   const [playerSummary, setPlayerSummary] = useState<PlayerAppearanceSummary | null>(null);
@@ -136,7 +138,7 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
   } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useBodyScrollLock(modalOpen || !!playerDeleteTarget || !!selectedPlayer);
+  useBodyScrollLock(modalOpen || !!playerDeleteTarget || !!selectedPlayer || selectedGameId != null);
 
   useEffect(
     () => () => {
@@ -263,6 +265,18 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 3), [games]);
   const teamDisplayName = team?.name ?? t("common.teamFallback", { id: teamId ?? "" });
   const canManageRoster = authed && (isAdmin || managerTeamId === teamNumericId);
+  const selectedGame = useMemo(
+    () => games.find((game) => game.id === selectedGameId) ?? null,
+    [games, selectedGameId],
+  );
+  const teamMap = useMemo(
+    () =>
+      allTeams.reduce<Record<number, Team>>((acc, entry) => {
+        acc[entry.id] = entry;
+        return acc;
+      }, {}),
+    [allTeams],
+  );
 
   const updateFormImagePreview = (nextUrl: string | null) => {
     setFormImagePreview((prev) => {
@@ -312,6 +326,14 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
 
   const closePlayerDetails = () => {
     setSelectedPlayer(null);
+  };
+
+  const openGameDetails = (gameId: number) => {
+    setSelectedGameId(gameId);
+  };
+
+  const closeGameDetails = () => {
+    setSelectedGameId(null);
   };
 
   const openEditFromDetails = () => {
@@ -719,7 +741,20 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
                       const opponentId = isHome ? game.away_team_id : game.home_team_id;
                       const opponentName = opponentMap[opponentId] ?? t("common.teamFallback", { id: opponentId });
                       return (
-                        <div className="mini-game-card" key={game.id}>
+                        <button
+                          className="mini-game-card mini-game-card-button"
+                          key={game.id}
+                          type="button"
+                          onClick={() => openGameDetails(game.id)}
+                          aria-label={t("games.viewDetailsFor", {
+                            awayTeamName:
+                              teamMap[game.away_team_id]?.name ??
+                              t("common.teamFallback", { id: game.away_team_id }),
+                            homeTeamName:
+                              teamMap[game.home_team_id]?.name ??
+                              t("common.teamFallback", { id: game.home_team_id }),
+                          })}
+                        >
                           <div className="mini-game-head">
                             <span>{formatDate(game.date)}</span>
                             <StatusChip tone={getGameStatusMeta(game.status).tone}>
@@ -732,7 +767,7 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
                               : t("roster.atOpponent", { opponent: opponentName })}
                           </strong>
                           <p>{formatTime(game.time)} | {game.field || t("common.fieldTbd")}</p>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -756,7 +791,20 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
                       const opponentId = isHome ? game.away_team_id : game.home_team_id;
                       const opponentName = opponentMap[opponentId] ?? t("common.teamFallback", { id: opponentId });
                       return (
-                        <div className="mini-game-card" key={game.id}>
+                        <button
+                          className="mini-game-card mini-game-card-button"
+                          key={game.id}
+                          type="button"
+                          onClick={() => openGameDetails(game.id)}
+                          aria-label={t("games.viewDetailsFor", {
+                            awayTeamName:
+                              teamMap[game.away_team_id]?.name ??
+                              t("common.teamFallback", { id: game.away_team_id }),
+                            homeTeamName:
+                              teamMap[game.home_team_id]?.name ??
+                              t("common.teamFallback", { id: game.home_team_id }),
+                          })}
+                        >
                           <div className="mini-game-head">
                             <span>{formatDate(game.date)}</span>
                             <StatusChip tone="success">{t("games.status.final")}</StatusChip>
@@ -767,7 +815,7 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
                               : t("roster.atOpponent", { opponent: opponentName })}
                           </strong>
                           <p>{teamScore ?? "-"} - {opponentScore ?? "-"} | {game.field || t("common.fieldTbd")}</p>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -777,6 +825,35 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
           </div>
         </>
       )}
+
+      <GameDetailsDialog
+        game={selectedGame}
+        awayTeam={
+          selectedGame
+            ? {
+                name:
+                  teamMap[selectedGame.away_team_id]?.name ??
+                  t("common.teamFallback", { id: selectedGame.away_team_id }),
+                logoSrc: teamMap[selectedGame.away_team_id]?.logo_url
+                  ? resolveApiUrl(teamMap[selectedGame.away_team_id].logo_url as string)
+                  : null,
+              }
+            : null
+        }
+        homeTeam={
+          selectedGame
+            ? {
+                name:
+                  teamMap[selectedGame.home_team_id]?.name ??
+                  t("common.teamFallback", { id: selectedGame.home_team_id }),
+                logoSrc: teamMap[selectedGame.home_team_id]?.logo_url
+                  ? resolveApiUrl(teamMap[selectedGame.home_team_id].logo_url as string)
+                  : null,
+              }
+            : null
+        }
+        onClose={closeGameDetails}
+      />
 
       {canManageRoster && modalOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">

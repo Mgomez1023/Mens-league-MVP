@@ -1935,6 +1935,31 @@ body {
   color: var(--color-text-soft);
 }
 
+.mini-game-card-button {
+  width: 100%;
+  padding: var(--space-4);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.mini-game-card-button:hover,
+.mini-game-card-button:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(82, 139, 205, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 20px 36px rgba(36, 84, 138, 0.16);
+}
+
+.mini-game-card-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
 .team-overview-brand,
 .post-author-block,
 .team-summary-brand {
@@ -2923,6 +2948,13 @@ body {
   gap: var(--space-3);
 }
 
+.game-details-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
 .game-details-header-copy {
   flex: 1;
   min-width: 0;
@@ -3164,6 +3196,22 @@ body {
   border-top: 1px solid rgba(149, 97, 57, 0.18);
 }
 
+.final-score-form {
+  align-items: start;
+}
+
+.final-score-team-field {
+  gap: 0.2rem;
+}
+
+.final-score-team-meta {
+  color: var(--color-text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .admin-ops-card {
   border-style: dashed;
 }
@@ -3181,6 +3229,14 @@ body {
   .home-layout,
   .roster-layout {
     grid-template-columns: 1fr;
+  }
+
+  .roster-side {
+    order: 1;
+  }
+
+  .roster-main {
+    order: 2;
   }
 }
 

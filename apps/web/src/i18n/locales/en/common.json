@@ -319,6 +319,15 @@
       "gamesPlayedSummary_other": "{{count}} games total",
       "saveButton": "Save lineup"
     },
+    "finalScore": {
+      "title": "Record final score",
+      "openButton": "Record final score",
+      "saveButton": "Save final score",
+      "saveSuccess": "Final score recorded.",
+      "saveError": "Unable to save the final score right now.",
+      "validationError": "Enter a valid non-negative score for both teams.",
+      "confirmSave": "Record this final score? The game status will be set to Final."
+    },
     "modal": {
       "addTitle": "Add game",
       "addDescription": "Create a matchup with teams, date, field, status, and optional score.",

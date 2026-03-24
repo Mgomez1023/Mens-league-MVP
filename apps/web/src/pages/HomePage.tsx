@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FaFacebookF, FaYoutube } from "react-icons/fa6";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { fetchGamesPublic, fetchTeamsPublic, getPosts, resolveApiUrl } from "../api";
 import type { Game, Post, Team } from "../api";
 import homeHeroImage from "../assets/Background.png";
+import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import { PublicGameCard } from "../components/PublicGameCard";
 import {
   EmptyState,
@@ -36,12 +37,12 @@ function HomeSocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]
 
 export default function HomePage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [teams, setTeams] = useState<Team[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -85,10 +86,21 @@ export default function HomePage() {
   const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 3), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 4), [games]);
   const latestPosts = useMemo(() => posts.slice(0, 4), [posts]);
+  const selectedGame = useMemo(
+    () => games.find((game) => game.id === selectedGameId) ?? null,
+    [games, selectedGameId],
+  );
 
   const handleOpenGameDetails = (gameId: number) => {
-    navigate("/games", { state: { selectedGameId: gameId } });
+    setSelectedGameId(gameId);
   };
+
+  const handleCloseGameDetails = () => {
+    setSelectedGameId(null);
+  };
+
+  const selectedAwayTeam = selectedGame ? teamMap[selectedGame.away_team_id] : null;
+  const selectedHomeTeam = selectedGame ? teamMap[selectedGame.home_team_id] : null;
 
   return (
     <section className="page-stack">
@@ -428,6 +440,35 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      <GameDetailsDialog
+        game={selectedGame}
+        awayTeam={
+          selectedGame
+            ? {
+                name:
+                  selectedAwayTeam?.name ??
+                  t("common.teamFallback", { id: selectedGame.away_team_id }),
+                logoSrc: selectedAwayTeam?.logo_url
+                  ? resolveApiUrl(selectedAwayTeam.logo_url)
+                  : null,
+              }
+            : null
+        }
+        homeTeam={
+          selectedGame
+            ? {
+                name:
+                  selectedHomeTeam?.name ??
+                  t("common.teamFallback", { id: selectedGame.home_team_id }),
+                logoSrc: selectedHomeTeam?.logo_url
+                  ? resolveApiUrl(selectedHomeTeam.logo_url)
+                  : null,
+              }
+            : null
+        }
+        onClose={handleCloseGameDetails}
+      />
     </section>
   );
 }

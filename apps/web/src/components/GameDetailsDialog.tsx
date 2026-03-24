@@ -25,6 +25,7 @@ type GameDetailsDialogProps = {
   awayTeam: TeamSummary | null;
   homeTeam: TeamSummary | null;
   onClose: () => void;
+  headerActions?: ReactNode;
   footer?: ReactNode;
 };
 
@@ -47,6 +48,7 @@ export function GameDetailsDialog({
   awayTeam,
   homeTeam,
   onClose,
+  headerActions,
   footer,
 }: GameDetailsDialogProps) {
   const { t } = useTranslation();
@@ -111,18 +113,21 @@ export function GameDetailsDialog({
           <div className="game-details-header-copy">
             <p className="game-details-kicker">{t("games.gameDetails")}</p>
             <h2 id={titleId}>
-              {awayTeam.name} {t("games.vs")} {homeTeam.name}
+              {homeTeam.name} {t("games.vs")} {awayTeam.name}
             </h2>
           </div>
-          <button
-            ref={closeButtonRef}
-            className="game-details-close"
-            type="button"
-            onClick={onClose}
-            aria-label={t("buttons.close")}
-          >
-            <span aria-hidden="true">x</span>
-          </button>
+          <div className="game-details-header-actions">
+            {headerActions}
+            <button
+              ref={closeButtonRef}
+              className="game-details-close"
+              type="button"
+              onClick={onClose}
+              aria-label={t("buttons.close")}
+            >
+              <span aria-hidden="true">x</span>
+            </button>
+          </div>
         </div>
 
         <section className="game-details-hero">
@@ -132,13 +137,13 @@ export function GameDetailsDialog({
           </div>
 
           <div className="game-details-matchup">
-            <div className="game-details-team game-details-team-away">
-              <TeamAvatar name={awayTeam.name} src={awayTeam.logoSrc} size="lg" />
+            <div className="game-details-team game-details-team-home">
+              <TeamAvatar name={homeTeam.name} src={homeTeam.logoSrc} size="lg" />
               <div className="game-details-team-copy">
-                <p className="game-details-team-label">{t("games.away")}</p>
-                <p className="game-details-team-name">{awayTeam.name}</p>
+                <p className="game-details-team-label">{t("games.home")}</p>
+                <p className="game-details-team-name">{homeTeam.name}</p>
               </div>
-              {isFinal && score && <p className="game-details-team-score">{score.away}</p>}
+              {isFinal && score && <p className="game-details-team-score">{score.home}</p>}
             </div>
 
             <div className="game-details-center">
@@ -146,9 +151,9 @@ export function GameDetailsDialog({
                 <>
                   <p className="game-details-score-label">{t("games.status.final")}</p>
                   <p className="game-details-scoreline">
-                    <span>{score.away}</span>
-                    <span className="game-details-score-divider">-</span>
                     <span>{score.home}</span>
+                    <span className="game-details-score-divider">-</span>
+                    <span>{score.away}</span>
                   </p>
                 </>
               ) : (
@@ -160,13 +165,13 @@ export function GameDetailsDialog({
               )}
             </div>
 
-            <div className="game-details-team game-details-team-home">
-              <TeamAvatar name={homeTeam.name} src={homeTeam.logoSrc} size="lg" />
+            <div className="game-details-team game-details-team-away">
+              <TeamAvatar name={awayTeam.name} src={awayTeam.logoSrc} size="lg" />
               <div className="game-details-team-copy">
-                <p className="game-details-team-label">{t("games.home")}</p>
-                <p className="game-details-team-name">{homeTeam.name}</p>
+                <p className="game-details-team-label">{t("games.away")}</p>
+                <p className="game-details-team-name">{awayTeam.name}</p>
               </div>
-              {isFinal && score && <p className="game-details-team-score">{score.home}</p>}
+              {isFinal && score && <p className="game-details-team-score">{score.away}</p>}
             </div>
           </div>
         </section>

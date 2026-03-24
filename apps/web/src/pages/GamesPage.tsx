@@ -66,6 +66,11 @@ const emptyForm = {
   away_score: "",
 };
 
+const emptyScoreForm = {
+  away_score: "",
+  home_score: "",
+};
+
 export default function GamesPage({
   authed,
   isAdmin,
@@ -99,6 +104,10 @@ export default function GamesPage({
   const [lineupLoading, setLineupLoading] = useState(false);
   const [lineupSaving, setLineupSaving] = useState(false);
   const [lineupError, setLineupError] = useState<string | null>(null);
+  const [scoreGame, setScoreGame] = useState<Game | null>(null);
+  const [scoreData, setScoreData] = useState(emptyScoreForm);
+  const [scoreSaving, setScoreSaving] = useState(false);
+  const [scoreError, setScoreError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     window: "all",
     teamId: "all",
@@ -112,7 +121,7 @@ export default function GamesPage({
   const scheduleGroupRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const hasAutoScrolledToCurrentGroupRef = useRef(false);
 
-  useBodyScrollLock(formOpen || !!editingGame || !!lineupGame);
+  useBodyScrollLock(formOpen || !!editingGame || !!lineupGame || !!scoreGame);
 
   const statusOptions = [
     { value: "SCHEDULED", label: t("games.status.scheduled") },
@@ -584,6 +593,26 @@ export default function GamesPage({
     handleEditStart(selectedGame);
   };
 
+  const handleOpenRecordFinalScore = (game: Game) => {
+    setScoreGame(game);
+    setScoreError(null);
+    setScoreData({
+      away_score: game.away_score != null ? String(game.away_score) : "",
+      home_score: game.home_score != null ? String(game.home_score) : "",
+    });
+  };
+
+  const handleCloseRecordFinalScore = () => {
+    if (scoreSaving) return;
+    setScoreGame(null);
+    setScoreError(null);
+    setScoreData(emptyScoreForm);
+  };
+
+  const handleScoreChange = (field: keyof typeof emptyScoreForm, value: string) => {
+    setScoreData((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handleOpenLineup = (game: Game) => {
     setLineupGame(game);
     setLineupError(null);
@@ -635,14 +664,71 @@ export default function GamesPage({
     }
   };
 
-  const handleDeleteFromDetails = async () => {
-    if (!selectedGame) return;
-    handleCloseGameDetails();
-    await handleDeleteGame(selectedGame.id);
+  const handleDeleteFromEdit = async () => {
+    if (!editingGame) return;
+    const gameToDelete = editingGame;
+    setEditingGame(null);
+    setEditError(null);
+    await handleDeleteGame(gameToDelete.id);
+  };
+
+  const handleSaveFinalScore = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!scoreGame) return;
+
+    const awayScore = Number(scoreData.away_score);
+    const homeScore = Number(scoreData.home_score);
+
+    if (
+      scoreData.away_score.trim() === "" ||
+      scoreData.home_score.trim() === "" ||
+      !Number.isInteger(awayScore) ||
+      !Number.isInteger(homeScore) ||
+      awayScore < 0 ||
+      homeScore < 0
+    ) {
+      setScoreError(t("games.finalScore.validationError"));
+      return;
+    }
+
+    const confirmed = window.confirm(t("games.finalScore.confirmSave"));
+    if (!confirmed) return;
+
+    setScoreSaving(true);
+    setScoreError(null);
+    setNotice(null);
+
+    try {
+      const updated = await updateGame(scoreGame.id, {
+        away_score: awayScore,
+        home_score: homeScore,
+        status: "FINAL",
+      });
+      setGames((prev) => prev.map((game) => (game.id === updated.id ? updated : game)));
+      setNotice(t("games.finalScore.saveSuccess"));
+      handleCloseRecordFinalScore();
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        return;
+      }
+      if (err instanceof PermissionError) {
+        setScoreError(t("auth.adminAccessRequired"));
+        return;
+      }
+      if (err instanceof ApiError && err.detail) {
+        setScoreError(err.detail);
+        return;
+      }
+      setScoreError(t("games.finalScore.saveError"));
+    } finally {
+      setScoreSaving(false);
+    }
   };
 
   const selectedGameDisplayData = selectedGame ? getGameDisplayData(selectedGame) : null;
   const lineupModalTitle = lineupState?.matchup ?? (lineupGame ? getGameDisplayData(lineupGame) : null);
+  const scoreModalTeams = scoreGame ? getGameDisplayData(scoreGame) : null;
 
   return (
     <section className="page-stack">
@@ -888,20 +974,6 @@ export default function GamesPage({
                                   <div className="schedule-mobile-row-team">
                                     <div className="schedule-mobile-row-team-copy">
                                       <TeamAvatar
-                                        name={awayTeamName}
-                                        src={awayTeamLogoSrc}
-                                        size="sm"
-                                      />
-                                      <span className="schedule-mobile-row-team-name">{awayTeamName}</span>
-                                    </div>
-                                    {finalGame && score ? (
-                                      <span className="schedule-mobile-row-team-score">{score.away}</span>
-                                    ) : null}
-                                  </div>
-
-                                  <div className="schedule-mobile-row-team">
-                                    <div className="schedule-mobile-row-team-copy">
-                                      <TeamAvatar
                                         name={homeTeamName}
                                         src={homeTeamLogoSrc}
                                         size="sm"
@@ -910,6 +982,20 @@ export default function GamesPage({
                                     </div>
                                     {finalGame && score ? (
                                       <span className="schedule-mobile-row-team-score">{score.home}</span>
+                                    ) : null}
+                                  </div>
+
+                                  <div className="schedule-mobile-row-team">
+                                    <div className="schedule-mobile-row-team-copy">
+                                      <TeamAvatar
+                                        name={awayTeamName}
+                                        src={awayTeamLogoSrc}
+                                        size="sm"
+                                      />
+                                      <span className="schedule-mobile-row-team-name">{awayTeamName}</span>
+                                    </div>
+                                    {finalGame && score ? (
+                                      <span className="schedule-mobile-row-team-score">{score.away}</span>
                                     ) : null}
                                   </div>
                                 </div>
@@ -935,7 +1021,10 @@ export default function GamesPage({
                             <button
                               className="schedule-mobile-row-overlay"
                               type="button"
-                              aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
+                              aria-label={t("games.viewDetailsFor", {
+                                awayTeamName: homeTeamName,
+                                homeTeamName: awayTeamName,
+                              })}
                               onClick={() => handleOpenGameDetails(game.id)}
                             >
                               <span className="visually-hidden">{t("buttons.viewDetails")}</span>
@@ -1181,6 +1270,18 @@ export default function GamesPage({
                   {editSaving ? t("common.saveInProgress") : t("games.modal.updateGame")}
                 </button>
                 <button
+                  className="button button-danger"
+                  type="button"
+                  onClick={() => {
+                    void handleDeleteFromEdit();
+                  }}
+                  disabled={editSaving || deletingId === editingGame.id}
+                >
+                  {deletingId === editingGame.id
+                    ? t("common.deleteInProgress")
+                    : t("games.modal.deleteGame")}
+                </button>
+                <button
                   className="button button-secondary"
                   type="button"
                   onClick={() => {
@@ -1193,6 +1294,74 @@ export default function GamesPage({
               </div>
             </form>
             {editError && <Notice variant="error">{editError}</Notice>}
+          </SurfaceCard>
+        </div>
+      )}
+
+      {isAdmin && scoreGame && scoreModalTeams && (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseRecordFinalScore();
+            }
+          }}
+        >
+          <SurfaceCard className="modal-card">
+            <SectionHeader
+              title={t("games.finalScore.title")}
+              description={`${scoreModalTeams.homeTeamName} ${t("games.vs")} ${scoreModalTeams.awayTeamName}`}
+              action={
+                <button
+                  className="button button-secondary button-small"
+                  type="button"
+                  onClick={handleCloseRecordFinalScore}
+                  disabled={scoreSaving}
+                >
+                  {t("buttons.close")}
+                </button>
+              }
+            />
+            <form className="form-grid game-form-grid final-score-form" onSubmit={handleSaveFinalScore}>
+              <label className="field final-score-team-field">
+                <span>{scoreModalTeams.homeTeamName}</span>
+                <small className="final-score-team-meta">{t("games.home")}</small>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={scoreData.home_score}
+                  onChange={(event) => handleScoreChange("home_score", event.target.value)}
+                />
+              </label>
+              <label className="field final-score-team-field">
+                <span>{scoreModalTeams.awayTeamName}</span>
+                <small className="final-score-team-meta">{t("games.away")}</small>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={scoreData.away_score}
+                  onChange={(event) => handleScoreChange("away_score", event.target.value)}
+                />
+              </label>
+              <div className="form-actions">
+                <button className="button button-primary" type="submit" disabled={scoreSaving}>
+                  {scoreSaving ? t("common.saveInProgress") : t("games.finalScore.saveButton")}
+                </button>
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={handleCloseRecordFinalScore}
+                  disabled={scoreSaving}
+                >
+                  {t("buttons.cancel")}
+                </button>
+              </div>
+            </form>
+            {scoreError ? <Notice variant="error">{scoreError}</Notice> : null}
           </SurfaceCard>
         </div>
       )}
@@ -1324,6 +1493,17 @@ export default function GamesPage({
             : null
         }
         onClose={handleCloseGameDetails}
+        headerActions={
+          isAdmin && selectedGame ? (
+            <button
+              className="button button-secondary button-small"
+              type="button"
+              onClick={handleEditFromDetails}
+            >
+              {t("games.modal.editGame")}
+            </button>
+          ) : null
+        }
         footer={
           selectedGame && canManageLineupForGame(selectedGame) ? (
             <>
@@ -1338,25 +1518,16 @@ export default function GamesPage({
                 {t("buttons.inputLineup")}
               </button>
               {isAdmin ? (
-                <>
-                  <button
-                    className="button button-secondary"
-                    type="button"
-                    onClick={handleEditFromDetails}
-                  >
-                    {t("games.modal.editGame")}
-                  </button>
-                  <button
-                    className="button button-danger"
-                    type="button"
-                    onClick={() => {
-                      void handleDeleteFromDetails();
-                    }}
-                    disabled={deletingId === selectedGame.id}
-                  >
-                    {deletingId === selectedGame.id ? t("common.deleteInProgress") : t("games.modal.deleteGame")}
-                  </button>
-                </>
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => {
+                    handleCloseGameDetails();
+                    handleOpenRecordFinalScore(selectedGame);
+                  }}
+                >
+                  {t("games.finalScore.openButton")}
+                </button>
               ) : null}
             </>
           ) : null
