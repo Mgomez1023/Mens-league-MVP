@@ -154,6 +154,30 @@ export function buildTeamMap(teams: Team[]) {
   }, {});
 }
 
+export function getGameTeamData(
+  game: Pick<Game, "home_team_id" | "away_team_id" | "home_team_name" | "away_team_name">,
+  side: "home" | "away",
+  teamMap: Record<number, Team>,
+) {
+  const teamId = side === "home" ? game.home_team_id : game.away_team_id;
+  const customName = side === "home" ? game.home_team_name : game.away_team_name;
+  const normalizedCustomName = customName?.trim();
+
+  if (normalizedCustomName) {
+    return { name: normalizedCustomName, team: null };
+  }
+
+  if (teamId != null) {
+    const team = teamMap[teamId];
+    if (team) {
+      return { name: team.name, team };
+    }
+    return { name: i18n.t("common.teamFallback", { id: teamId }), team: null };
+  }
+
+  return { name: i18n.t("games.customTeamFallback"), team: null };
+}
+
 export function sortStandings(teams: Team[]) {
   return [...teams].sort((a, b) => {
     const winsDiff = (b.wins ?? 0) - (a.wins ?? 0);
@@ -188,25 +212,34 @@ export function getGameStatusMeta(status?: string | null) {
   }
 }
 
-export function groupGamesByDate(games: Game[]) {
+function buildScheduleWeekLabelMap(games: Game[]) {
+  const sortedKeys = [...new Set(
+    games
+      .map((game) => getDateOnlyKey(game.date))
+      .filter((value): value is string => Boolean(value)),
+  )].sort((a, b) => {
+    const dateA = parseDateOnly(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const dateB = parseDateOnly(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    return dateA - dateB;
+  });
+
+  return new Map(
+    sortedKeys.map((key, index) => [key, i18n.t("games.weekLabel", { count: index })]),
+  );
+}
+
+export function groupGamesByDate(games: Game[], referenceGames: Game[] = games) {
   const sorted = [...games].sort((a, b) => {
     const timeA = parseGameDateTime(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     const timeB = parseGameDateTime(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
     return timeA - timeB || a.id - b.id;
   });
+  const weekLabelMap = buildScheduleWeekLabelMap(referenceGames);
 
   const grouped: GameDateGroup[] = [];
   for (const game of sorted) {
-    const date = parseDateOnly(game.date);
     const key = getDateOnlyKey(game.date) ?? `game-${game.id}`;
-    const label = date
-      ? formatDateValue(date, {
-          weekday: "long",
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })
-      : i18n.t("common.unscheduled");
+    const label = weekLabelMap.get(key) ?? i18n.t("common.unscheduled");
     const last = grouped[grouped.length - 1];
     if (!last || last.key !== key) {
       grouped.push({ key, label, games: [game] });

@@ -65,13 +65,99 @@ run_startup_step(ensure_metadata)
 run_startup_step(ensure_player_columns)
 
 def ensure_game_columns():
-    if engine.dialect.name != "sqlite":
+    inspector = inspect(engine)
+    if "games" not in inspector.get_table_names():
         return
+
+    if engine.dialect.name == "sqlite":
+        with engine.begin() as conn:
+            result = conn.execute(text("PRAGMA table_info(games)"))
+            columns = {row[1]: row for row in result}
+            needs_rebuild = (
+                "home_team_name" not in columns
+                or "away_team_name" not in columns
+                or columns.get("home_team_id", (None, None, None, 1))[3] == 1
+                or columns.get("away_team_id", (None, None, None, 1))[3] == 1
+            )
+            if not needs_rebuild:
+                if "time" not in columns:
+                    conn.execute(text("ALTER TABLE games ADD COLUMN time VARCHAR"))
+                return
+
+            conn.execute(text("PRAGMA foreign_keys=OFF"))
+            conn.execute(text("ALTER TABLE games RENAME TO games_old"))
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE games (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        season_id INTEGER NOT NULL REFERENCES seasons(id),
+                        date DATE NOT NULL,
+                        time VARCHAR,
+                        field VARCHAR,
+                        home_team_id INTEGER REFERENCES teams(id),
+                        away_team_id INTEGER REFERENCES teams(id),
+                        home_team_name VARCHAR,
+                        away_team_name VARCHAR,
+                        home_score INTEGER,
+                        away_score INTEGER,
+                        status VARCHAR NOT NULL
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO games (
+                        id,
+                        season_id,
+                        date,
+                        time,
+                        field,
+                        home_team_id,
+                        away_team_id,
+                        home_team_name,
+                        away_team_name,
+                        home_score,
+                        away_score,
+                        status
+                    )
+                    SELECT
+                        id,
+                        season_id,
+                        date,
+                        time,
+                        field,
+                        home_team_id,
+                        away_team_id,
+                        NULL,
+                        NULL,
+                        home_score,
+                        away_score,
+                        status
+                    FROM games_old
+                    """
+                )
+            )
+            conn.execute(text("DROP TABLE games_old"))
+            conn.execute(text("PRAGMA foreign_keys=ON"))
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("games")}
+    statements: list[str] = []
+    if "time" not in columns:
+        statements.append("ALTER TABLE games ADD COLUMN time VARCHAR")
+    if "home_team_name" not in columns:
+        statements.append("ALTER TABLE games ADD COLUMN home_team_name VARCHAR")
+    if "away_team_name" not in columns:
+        statements.append("ALTER TABLE games ADD COLUMN away_team_name VARCHAR")
+
     with engine.begin() as conn:
-        result = conn.execute(text("PRAGMA table_info(games)"))
-        columns = {row[1] for row in result}
-        if "time" not in columns:
-            conn.execute(text("ALTER TABLE games ADD COLUMN time VARCHAR"))
+        for statement in statements:
+            conn.execute(text(statement))
+        conn.execute(text("ALTER TABLE games ALTER COLUMN home_team_id DROP NOT NULL"))
+        conn.execute(text("ALTER TABLE games ALTER COLUMN away_team_id DROP NOT NULL"))
 
 run_startup_step(ensure_game_columns)
 

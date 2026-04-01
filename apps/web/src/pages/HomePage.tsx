@@ -20,6 +20,7 @@ import { leagueProfile } from "../utils/site";
 import {
   buildTeamMap,
   formatDateTime,
+  getGameTeamData,
   getRecentResults,
   getRecord,
   getUpcomingGames,
@@ -99,8 +100,8 @@ export default function HomePage() {
     setSelectedGameId(null);
   };
 
-  const selectedAwayTeam = selectedGame ? teamMap[selectedGame.away_team_id] : null;
-  const selectedHomeTeam = selectedGame ? teamMap[selectedGame.home_team_id] : null;
+  const selectedAwayTeam = selectedGame ? getGameTeamData(selectedGame, "away", teamMap) : null;
+  const selectedHomeTeam = selectedGame ? getGameTeamData(selectedGame, "home", teamMap) : null;
 
   return (
     <section className="page-stack">
@@ -181,12 +182,10 @@ export default function HomePage() {
               ) : (
                 <div className="matchup-list">
                   {upcomingGames.map((game) => {
-                    const away = teamMap[game.away_team_id];
-                    const home = teamMap[game.home_team_id];
-                    const awayTeamName =
-                      away?.name ?? t("common.teamFallback", { id: game.away_team_id });
-                    const homeTeamName =
-                      home?.name ?? t("common.teamFallback", { id: game.home_team_id });
+                    const away = getGameTeamData(game, "away", teamMap);
+                    const home = getGameTeamData(game, "home", teamMap);
+                    const awayTeamName = away.name;
+                    const homeTeamName = home.name;
 
                     return (
                       <div key={game.id} className="schedule-game-card-shell">
@@ -194,9 +193,9 @@ export default function HomePage() {
                           className="schedule-game-card"
                           game={game}
                           awayTeamName={awayTeamName}
-                          awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
+                          awayTeamLogoSrc={away.team?.logo_url ? resolveApiUrl(away.team.logo_url) : null}
                           homeTeamName={homeTeamName}
-                          homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
+                          homeTeamLogoSrc={home.team?.logo_url ? resolveApiUrl(home.team.logo_url) : null}
                           layout="schedule"
                           avatarSize="xl"
                           footer={
@@ -243,12 +242,10 @@ export default function HomePage() {
               ) : (
                 <div className="results-list">
                   {recentResults.map((game) => {
-                    const away = teamMap[game.away_team_id];
-                    const home = teamMap[game.home_team_id];
-                    const awayTeamName =
-                      away?.name ?? t("common.teamFallback", { id: game.away_team_id });
-                    const homeTeamName =
-                      home?.name ?? t("common.teamFallback", { id: game.home_team_id });
+                    const away = getGameTeamData(game, "away", teamMap);
+                    const home = getGameTeamData(game, "home", teamMap);
+                    const awayTeamName = away.name;
+                    const homeTeamName = home.name;
 
                     return (
                       <div key={game.id} className="schedule-game-card-shell">
@@ -256,9 +253,9 @@ export default function HomePage() {
                           className="schedule-game-card"
                           game={game}
                           awayTeamName={awayTeamName}
-                          awayTeamLogoSrc={away?.logo_url ? resolveApiUrl(away.logo_url) : null}
+                          awayTeamLogoSrc={away.team?.logo_url ? resolveApiUrl(away.team.logo_url) : null}
                           homeTeamName={homeTeamName}
-                          homeTeamLogoSrc={home?.logo_url ? resolveApiUrl(home.logo_url) : null}
+                          homeTeamLogoSrc={home.team?.logo_url ? resolveApiUrl(home.team.logo_url) : null}
                           layout="schedule"
                           avatarSize="xl"
                           footer={
@@ -444,25 +441,21 @@ export default function HomePage() {
       <GameDetailsDialog
         game={selectedGame}
         awayTeam={
-          selectedGame
+          selectedGame && selectedAwayTeam
             ? {
-                name:
-                  selectedAwayTeam?.name ??
-                  t("common.teamFallback", { id: selectedGame.away_team_id }),
-                logoSrc: selectedAwayTeam?.logo_url
-                  ? resolveApiUrl(selectedAwayTeam.logo_url)
+                name: selectedAwayTeam.name,
+                logoSrc: selectedAwayTeam.team?.logo_url
+                  ? resolveApiUrl(selectedAwayTeam.team.logo_url)
                   : null,
               }
             : null
         }
         homeTeam={
-          selectedGame
+          selectedGame && selectedHomeTeam
             ? {
-                name:
-                  selectedHomeTeam?.name ??
-                  t("common.teamFallback", { id: selectedGame.home_team_id }),
-                logoSrc: selectedHomeTeam?.logo_url
-                  ? resolveApiUrl(selectedHomeTeam.logo_url)
+                name: selectedHomeTeam.name,
+                logoSrc: selectedHomeTeam.team?.logo_url
+                  ? resolveApiUrl(selectedHomeTeam.team.logo_url)
                   : null,
               }
             : null

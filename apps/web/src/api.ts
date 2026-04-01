@@ -26,8 +26,10 @@ export type Game = {
   location_address?: string | null;
   field_number?: string | number | null;
   notes?: string | null;
-  home_team_id: number;
-  away_team_id: number;
+  home_team_id: number | null;
+  away_team_id: number | null;
+  home_team_name?: string | null;
+  away_team_name?: string | null;
   home_score?: number | null;
   away_score?: number | null;
   status: string;
@@ -333,8 +335,10 @@ export async function createGame(payload: {
   date: string;
   time?: string | null;
   field?: string | null;
-  home_team_id: number;
-  away_team_id: number;
+  home_team_id?: number | null;
+  away_team_id?: number | null;
+  home_team_name?: string | null;
+  away_team_name?: string | null;
   status?: string;
   home_score?: number | null;
   away_score?: number | null;
@@ -353,8 +357,10 @@ export async function updateGame(
     date: string;
     time: string | null;
     field: string | null;
-    home_team_id: number;
-    away_team_id: number;
+    home_team_id: number | null;
+    away_team_id: number | null;
+    home_team_name: string | null;
+    away_team_name: string | null;
     status: string;
     home_score: number | null;
     away_score: number | null;

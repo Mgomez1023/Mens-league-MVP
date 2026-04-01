@@ -49,6 +49,8 @@ def serialize_game(game: Game):
         "field": game.field,
         "home_team_id": game.home_team_id,
         "away_team_id": game.away_team_id,
+        "home_team_name": game.home_team_name,
+        "away_team_name": game.away_team_name,
         "home_score": game.home_score,
         "away_score": game.away_score,
         "status": game.status,

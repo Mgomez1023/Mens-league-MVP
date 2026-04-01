@@ -39,6 +39,7 @@ import {
   formatFullGameDate,
   formatTime,
   getCurrentScheduleGroupKey,
+  getGameTeamData,
   getGameScore,
   getGameShortLocation,
   getGameStatusMeta,
@@ -55,12 +56,18 @@ type GamesPageProps = {
   onAuthError: () => void;
 };
 
+const CUSTOM_TEAM_VALUE = "__custom__";
+
 const emptyForm = {
   date: "",
   time: "",
   field: "",
   home_team_id: "",
   away_team_id: "",
+  home_team_mode: "",
+  away_team_mode: "",
+  home_team_name: "",
+  away_team_name: "",
   status: "SCHEDULED",
   home_score: "",
   away_score: "",
@@ -263,7 +270,7 @@ export default function GamesPage({
     });
   }, [filters, games]);
 
-  const groupedGames = useMemo(() => groupGamesByDate(filteredGames), [filteredGames]);
+  const groupedGames = useMemo(() => groupGamesByDate(filteredGames, games), [filteredGames, games]);
   const currentScheduleGroupKey = useMemo(
     () => getCurrentScheduleGroupKey(groupedGames),
     [groupedGames],
@@ -353,23 +360,59 @@ export default function GamesPage({
   };
 
   const getGameDisplayData = (game: Game) => {
-    const away = teamMap[game.away_team_id];
-    const home = teamMap[game.home_team_id];
+    const away = getGameTeamData(game, "away", teamMap);
+    const home = getGameTeamData(game, "home", teamMap);
 
     return {
-      awayTeamName: away?.name ?? t("common.teamFallback", { id: game.away_team_id }),
-      awayTeamLogoSrc: away?.logo_url ? resolveApiUrl(away.logo_url) : null,
-      homeTeamName: home?.name ?? t("common.teamFallback", { id: game.home_team_id }),
-      homeTeamLogoSrc: home?.logo_url ? resolveApiUrl(home.logo_url) : null,
+      awayTeamName: away.name,
+      awayTeamLogoSrc: away.team?.logo_url ? resolveApiUrl(away.team.logo_url) : null,
+      homeTeamName: home.name,
+      homeTeamLogoSrc: home.team?.logo_url ? resolveApiUrl(home.team.logo_url) : null,
     };
   };
 
   const canManageLineupForGame = (game: Game) =>
+    game.home_team_id != null &&
+    game.away_team_id != null &&
     authed &&
     (isAdmin ||
       (isManager &&
         managerTeamId != null &&
         [game.home_team_id, game.away_team_id].includes(managerTeamId)));
+
+  const getTeamSelectValue = (data: typeof emptyForm, side: "home" | "away") => {
+    const teamId = side === "home" ? data.home_team_id : data.away_team_id;
+    if (teamId) return teamId;
+    const teamMode = side === "home" ? data.home_team_mode : data.away_team_mode;
+    if (teamMode === "custom") return CUSTOM_TEAM_VALUE;
+    return "";
+  };
+
+  const resolveFormTeamSelection = (data: typeof emptyForm, side: "home" | "away") => {
+    const teamIdValue = side === "home" ? data.home_team_id : data.away_team_id;
+    const teamNameValue = side === "home" ? data.home_team_name : data.away_team_name;
+    const normalizedTeamName = teamNameValue.trim();
+
+    if (teamIdValue) {
+      const teamId = Number(teamIdValue);
+      const teamName = teamMap[teamId]?.name ?? String(teamId);
+      return {
+        teamId,
+        teamName: null,
+        identity: teamName.trim().toLocaleLowerCase(),
+      };
+    }
+
+    if (normalizedTeamName) {
+      return {
+        teamId: null,
+        teamName: normalizedTeamName,
+        identity: normalizedTeamName.toLocaleLowerCase(),
+      };
+    }
+
+    return null;
+  };
 
   const handleBrowseScheduleToggle = () => {
     setBrowseScheduleOpen((prev) => {
@@ -391,6 +434,50 @@ export default function GamesPage({
     setEditData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleFormTeamSelectChange = (side: "home" | "away", value: string) => {
+    setFormData((prev) => {
+      if (side === "home") {
+        return {
+          ...prev,
+          home_team_id: value && value !== CUSTOM_TEAM_VALUE ? value : "",
+          home_team_mode: value === CUSTOM_TEAM_VALUE ? "custom" : "",
+          home_team_name:
+            value === CUSTOM_TEAM_VALUE ? prev.home_team_name : "",
+        };
+      }
+
+      return {
+        ...prev,
+        away_team_id: value && value !== CUSTOM_TEAM_VALUE ? value : "",
+        away_team_mode: value === CUSTOM_TEAM_VALUE ? "custom" : "",
+        away_team_name:
+          value === CUSTOM_TEAM_VALUE ? prev.away_team_name : "",
+      };
+    });
+  };
+
+  const handleEditTeamSelectChange = (side: "home" | "away", value: string) => {
+    setEditData((prev) => {
+      if (side === "home") {
+        return {
+          ...prev,
+          home_team_id: value && value !== CUSTOM_TEAM_VALUE ? value : "",
+          home_team_mode: value === CUSTOM_TEAM_VALUE ? "custom" : "",
+          home_team_name:
+            value === CUSTOM_TEAM_VALUE ? prev.home_team_name : "",
+        };
+      }
+
+      return {
+        ...prev,
+        away_team_id: value && value !== CUSTOM_TEAM_VALUE ? value : "",
+        away_team_mode: value === CUSTOM_TEAM_VALUE ? "custom" : "",
+        away_team_name:
+          value === CUSTOM_TEAM_VALUE ? prev.away_team_name : "",
+      };
+    });
+  };
+
   const formatDateInput = (value: string) => {
     if (!value) return "";
     const parsed = new Date(value);
@@ -403,12 +490,20 @@ export default function GamesPage({
     setFormError(null);
     setNotice(null);
 
-    if (!formData.date || !formData.home_team_id || !formData.away_team_id) {
+    if (!formData.date) {
       setFormError(t("games.requiredError"));
       return;
     }
 
-    if (formData.home_team_id === formData.away_team_id) {
+    const homeSelection = resolveFormTeamSelection(formData, "home");
+    const awaySelection = resolveFormTeamSelection(formData, "away");
+
+    if (!homeSelection || !awaySelection) {
+      setFormError(t("games.customTeamNameRequired"));
+      return;
+    }
+
+    if (homeSelection.identity === awaySelection.identity) {
       setFormError(t("games.sameTeamsError"));
       return;
     }
@@ -419,8 +514,10 @@ export default function GamesPage({
         date: formData.date,
         time: formData.time || null,
         field: formData.field || null,
-        home_team_id: Number(formData.home_team_id),
-        away_team_id: Number(formData.away_team_id),
+        home_team_id: homeSelection.teamId,
+        away_team_id: awaySelection.teamId,
+        home_team_name: homeSelection.teamName,
+        away_team_name: awaySelection.teamName,
         status: formData.status,
         home_score: formData.home_score ? Number(formData.home_score) : null,
         away_score: formData.away_score ? Number(formData.away_score) : null,
@@ -455,8 +552,12 @@ export default function GamesPage({
       date: formatDateInput(game.date),
       time: game.time ?? "",
       field: game.field ?? "",
-      home_team_id: String(game.home_team_id),
-      away_team_id: String(game.away_team_id),
+      home_team_id: game.home_team_id != null ? String(game.home_team_id) : "",
+      away_team_id: game.away_team_id != null ? String(game.away_team_id) : "",
+      home_team_mode: game.home_team_id == null && (game.home_team_name ?? "").trim() ? "custom" : "",
+      away_team_mode: game.away_team_id == null && (game.away_team_name ?? "").trim() ? "custom" : "",
+      home_team_name: game.home_team_name ?? "",
+      away_team_name: game.away_team_name ?? "",
       status: game.status ?? "SCHEDULED",
       home_score: game.home_score != null ? String(game.home_score) : "",
       away_score: game.away_score != null ? String(game.away_score) : "",
@@ -468,14 +569,30 @@ export default function GamesPage({
     if (!editingGame) return;
     setEditError(null);
     setNotice(null);
+
+    const homeSelection = resolveFormTeamSelection(editData, "home");
+    const awaySelection = resolveFormTeamSelection(editData, "away");
+
+    if (!homeSelection || !awaySelection) {
+      setEditError(t("games.customTeamNameRequired"));
+      return;
+    }
+
+    if (homeSelection.identity === awaySelection.identity) {
+      setEditError(t("games.sameTeamsError"));
+      return;
+    }
+
     setEditSaving(true);
     try {
       const updated = await updateGame(editingGame.id, {
         date: editData.date || undefined,
         time: editData.time || null,
         field: editData.field || null,
-        home_team_id: Number(editData.home_team_id),
-        away_team_id: Number(editData.away_team_id),
+        home_team_id: homeSelection.teamId,
+        away_team_id: awaySelection.teamId,
+        home_team_name: homeSelection.teamName,
+        away_team_name: awaySelection.teamName,
         status: editData.status || undefined,
         home_score: editData.home_score === "" ? null : Number(editData.home_score),
         away_score: editData.away_score === "" ? null : Number(editData.away_score),
@@ -1088,10 +1205,11 @@ export default function GamesPage({
               <label className="field">
                 <span>{t("common.awayTeam")}</span>
                 <select
-                  value={formData.away_team_id}
-                  onChange={(event) => handleFormChange("away_team_id", event.target.value)}
+                  value={getTeamSelectValue(formData, "away")}
+                  onChange={(event) => handleFormTeamSelectChange("away", event.target.value)}
                 >
                   <option value="">{t("common.select")}</option>
+                  <option value={CUSTOM_TEAM_VALUE}>{t("games.customTeamOption")}</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
@@ -1099,13 +1217,24 @@ export default function GamesPage({
                   ))}
                 </select>
               </label>
+              {getTeamSelectValue(formData, "away") === CUSTOM_TEAM_VALUE ? (
+                <label className="field">
+                  <span>{t("games.customTeamOption")}</span>
+                  <input
+                    value={formData.away_team_name}
+                    onChange={(event) => handleFormChange("away_team_name", event.target.value)}
+                    placeholder={t("games.customTeamNamePlaceholder")}
+                  />
+                </label>
+              ) : null}
               <label className="field">
                 <span>{t("common.homeTeam")}</span>
                 <select
-                  value={formData.home_team_id}
-                  onChange={(event) => handleFormChange("home_team_id", event.target.value)}
+                  value={getTeamSelectValue(formData, "home")}
+                  onChange={(event) => handleFormTeamSelectChange("home", event.target.value)}
                 >
                   <option value="">{t("common.select")}</option>
+                  <option value={CUSTOM_TEAM_VALUE}>{t("games.customTeamOption")}</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
@@ -1113,6 +1242,16 @@ export default function GamesPage({
                   ))}
                 </select>
               </label>
+              {getTeamSelectValue(formData, "home") === CUSTOM_TEAM_VALUE ? (
+                <label className="field">
+                  <span>{t("games.customTeamOption")}</span>
+                  <input
+                    value={formData.home_team_name}
+                    onChange={(event) => handleFormChange("home_team_name", event.target.value)}
+                    placeholder={t("games.customTeamNamePlaceholder")}
+                  />
+                </label>
+              ) : null}
               <label className="field">
                 <span>{t("common.status")}</span>
                 <select
@@ -1211,9 +1350,11 @@ export default function GamesPage({
               <label className="field">
                 <span>{t("common.awayTeam")}</span>
                 <select
-                  value={editData.away_team_id}
-                  onChange={(event) => handleEditChange("away_team_id", event.target.value)}
+                  value={getTeamSelectValue(editData, "away")}
+                  onChange={(event) => handleEditTeamSelectChange("away", event.target.value)}
                 >
+                  <option value="">{t("common.select")}</option>
+                  <option value={CUSTOM_TEAM_VALUE}>{t("games.customTeamOption")}</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
@@ -1221,12 +1362,24 @@ export default function GamesPage({
                   ))}
                 </select>
               </label>
+              {getTeamSelectValue(editData, "away") === CUSTOM_TEAM_VALUE ? (
+                <label className="field">
+                  <span>{t("games.customTeamOption")}</span>
+                  <input
+                    value={editData.away_team_name}
+                    onChange={(event) => handleEditChange("away_team_name", event.target.value)}
+                    placeholder={t("games.customTeamNamePlaceholder")}
+                  />
+                </label>
+              ) : null}
               <label className="field">
                 <span>{t("common.homeTeam")}</span>
                 <select
-                  value={editData.home_team_id}
-                  onChange={(event) => handleEditChange("home_team_id", event.target.value)}
+                  value={getTeamSelectValue(editData, "home")}
+                  onChange={(event) => handleEditTeamSelectChange("home", event.target.value)}
                 >
+                  <option value="">{t("common.select")}</option>
+                  <option value={CUSTOM_TEAM_VALUE}>{t("games.customTeamOption")}</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
@@ -1234,6 +1387,16 @@ export default function GamesPage({
                   ))}
                 </select>
               </label>
+              {getTeamSelectValue(editData, "home") === CUSTOM_TEAM_VALUE ? (
+                <label className="field">
+                  <span>{t("games.customTeamOption")}</span>
+                  <input
+                    value={editData.home_team_name}
+                    onChange={(event) => handleEditChange("home_team_name", event.target.value)}
+                    placeholder={t("games.customTeamNamePlaceholder")}
+                  />
+                </label>
+              ) : null}
               <label className="field">
                 <span>{t("common.status")}</span>
                 <select
@@ -1505,18 +1668,20 @@ export default function GamesPage({
           ) : null
         }
         footer={
-          selectedGame && canManageLineupForGame(selectedGame) ? (
+          selectedGame && (canManageLineupForGame(selectedGame) || isAdmin) ? (
             <>
-              <button
-                className="button button-primary"
-                type="button"
-                onClick={() => {
-                  handleCloseGameDetails();
-                  handleOpenLineup(selectedGame);
-                }}
-              >
-                {t("buttons.inputLineup")}
-              </button>
+              {canManageLineupForGame(selectedGame) ? (
+                <button
+                  className="button button-primary"
+                  type="button"
+                  onClick={() => {
+                    handleCloseGameDetails();
+                    handleOpenLineup(selectedGame);
+                  }}
+                >
+                  {t("buttons.inputLineup")}
+                </button>
+              ) : null}
               {isAdmin ? (
                 <button
                   className="button button-secondary"

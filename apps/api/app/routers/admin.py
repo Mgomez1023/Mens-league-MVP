@@ -63,6 +63,8 @@ def serialize_game(game: Game):
         "field": game.field,
         "home_team_id": game.home_team_id,
         "away_team_id": game.away_team_id,
+        "home_team_name": game.home_team_name,
+        "away_team_name": game.away_team_name,
         "home_score": game.home_score,
         "away_score": game.away_score,
         "status": game.status,
@@ -120,6 +122,11 @@ def serialize_lineup_team(team: Team, players: list[Player], games_played_map: d
 
 
 def build_lineup_scope(game: Game, user: User):
+    if game.home_team_id is None or game.away_team_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Lineups are only available for games between league teams",
+        )
     if is_admin_user(user):
         visible_team_ids = [game.away_team_id, game.home_team_id]
         return True, visible_team_ids, visible_team_ids
@@ -184,8 +191,10 @@ class GameCreate(BaseModel):
     date: datetime.date
     time: str | None = None
     field: str | None = None
-    home_team_id: int = Field(..., gt=0)
-    away_team_id: int = Field(..., gt=0)
+    home_team_id: int | None = Field(default=None, gt=0)
+    away_team_id: int | None = Field(default=None, gt=0)
+    home_team_name: str | None = None
+    away_team_name: str | None = None
     status: str = "SCHEDULED"
     home_score: int | None = None
     away_score: int | None = None
@@ -197,9 +206,35 @@ class GameUpdate(BaseModel):
     field: str | None = None
     home_team_id: int | None = Field(default=None, gt=0)
     away_team_id: int | None = Field(default=None, gt=0)
+    home_team_name: str | None = None
+    away_team_name: str | None = None
     status: str | None = None
     home_score: int | None = None
     away_score: int | None = None
+
+
+def normalize_team_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    trimmed = value.strip()
+    return trimmed or None
+
+
+def resolve_game_team_selection(
+    *,
+    team_id: int | None,
+    team_name: str | None,
+    side_label: str,
+    db: Session,
+):
+    normalized_name = normalize_team_name(team_name)
+    if team_id is not None:
+        if not db.get(Team, team_id):
+            raise HTTPException(status_code=404, detail=f"{side_label} team not found")
+        return team_id, None, ("team", str(team_id))
+    if normalized_name:
+        return None, normalized_name, ("name", normalized_name.casefold())
+    raise HTTPException(status_code=400, detail=f"{side_label} team is required")
 
 
 class TeamCreate(BaseModel):
@@ -448,13 +483,20 @@ def create_game(
     _: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    if payload.home_team_id == payload.away_team_id:
+    home_team_id, home_team_name, home_identity = resolve_game_team_selection(
+        team_id=payload.home_team_id,
+        team_name=payload.home_team_name,
+        side_label="Home",
+        db=db,
+    )
+    away_team_id, away_team_name, away_identity = resolve_game_team_selection(
+        team_id=payload.away_team_id,
+        team_name=payload.away_team_name,
+        side_label="Away",
+        db=db,
+    )
+    if home_identity == away_identity:
         raise HTTPException(status_code=400, detail="Teams must be different")
-
-    home_team = db.get(Team, payload.home_team_id)
-    away_team = db.get(Team, payload.away_team_id)
-    if not home_team or not away_team:
-        raise HTTPException(status_code=404, detail="Team not found")
 
     season = db.query(Season).order_by(Season.year.desc()).first()
     if not season:
@@ -465,8 +507,10 @@ def create_game(
         date=payload.date,
         time=payload.time,
         field=payload.field,
-        home_team_id=payload.home_team_id,
-        away_team_id=payload.away_team_id,
+        home_team_id=home_team_id,
+        away_team_id=away_team_id,
+        home_team_name=home_team_name,
+        away_team_name=away_team_name,
         home_score=payload.home_score,
         away_score=payload.away_score,
         status=payload.status,
@@ -488,33 +532,49 @@ def update_game(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
+    fields_set = getattr(payload, "model_fields_set", getattr(payload, "__fields_set__", set()))
     original_home_team_id = game.home_team_id
     original_away_team_id = game.away_team_id
-    home_team_id = payload.home_team_id if payload.home_team_id is not None else game.home_team_id
-    away_team_id = payload.away_team_id if payload.away_team_id is not None else game.away_team_id
-    if home_team_id == away_team_id:
-        raise HTTPException(status_code=400, detail="Teams must be different")
 
-    if payload.home_team_id is not None and not db.get(Team, payload.home_team_id):
-        raise HTTPException(status_code=404, detail="Home team not found")
-    if payload.away_team_id is not None and not db.get(Team, payload.away_team_id):
-        raise HTTPException(status_code=404, detail="Away team not found")
+    next_home_team_id = payload.home_team_id if "home_team_id" in fields_set else game.home_team_id
+    next_away_team_id = payload.away_team_id if "away_team_id" in fields_set else game.away_team_id
+    next_home_team_name = (
+        payload.home_team_name if "home_team_name" in fields_set else game.home_team_name
+    )
+    next_away_team_name = (
+        payload.away_team_name if "away_team_name" in fields_set else game.away_team_name
+    )
+
+    home_team_id, home_team_name, home_identity = resolve_game_team_selection(
+        team_id=next_home_team_id,
+        team_name=next_home_team_name,
+        side_label="Home",
+        db=db,
+    )
+    away_team_id, away_team_name, away_identity = resolve_game_team_selection(
+        team_id=next_away_team_id,
+        team_name=next_away_team_name,
+        side_label="Away",
+        db=db,
+    )
+    if home_identity == away_identity:
+        raise HTTPException(status_code=400, detail="Teams must be different")
 
     if payload.date is not None:
         game.date = payload.date
-    if payload.time is not None:
+    if "time" in fields_set:
         game.time = payload.time
-    if payload.field is not None:
+    if "field" in fields_set:
         game.field = payload.field
-    if payload.home_team_id is not None:
-        game.home_team_id = payload.home_team_id
-    if payload.away_team_id is not None:
-        game.away_team_id = payload.away_team_id
+    game.home_team_id = home_team_id
+    game.away_team_id = away_team_id
+    game.home_team_name = home_team_name
+    game.away_team_name = away_team_name
     if payload.status is not None:
         game.status = payload.status
-    if payload.home_score is not None:
+    if "home_score" in fields_set:
         game.home_score = payload.home_score
-    if payload.away_score is not None:
+    if "away_score" in fields_set:
         game.away_score = payload.away_score
 
     if home_team_id != original_home_team_id or away_team_id != original_away_team_id:

@@ -36,6 +36,7 @@ import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import {
   formatDate,
   formatTime,
+  getGameTeamData,
   getGameStatusMeta,
   getRecentResults,
   getRecord,
@@ -253,14 +254,6 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
     };
   }, [selectedPlayer, t]);
 
-  const opponentMap = useMemo(
-    () =>
-      allTeams.reduce<Record<number, string>>((acc, entry) => {
-        acc[entry.id] = entry.name;
-        return acc;
-      }, {}),
-    [allTeams],
-  );
   const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 3), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 3), [games]);
   const teamDisplayName = team?.name ?? t("common.teamFallback", { id: teamId ?? "" });
@@ -738,8 +731,10 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
                   <div className="mini-game-list">
                     {upcomingGames.map((game) => {
                       const isHome = game.home_team_id === teamNumericId;
-                      const opponentId = isHome ? game.away_team_id : game.home_team_id;
-                      const opponentName = opponentMap[opponentId] ?? t("common.teamFallback", { id: opponentId });
+                      const opponent = getGameTeamData(game, isHome ? "away" : "home", teamMap);
+                      const away = getGameTeamData(game, "away", teamMap);
+                      const home = getGameTeamData(game, "home", teamMap);
+                      const opponentName = opponent.name;
                       return (
                         <button
                           className="mini-game-card mini-game-card-button"
@@ -747,12 +742,8 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
                           type="button"
                           onClick={() => openGameDetails(game.id)}
                           aria-label={t("games.viewDetailsFor", {
-                            awayTeamName:
-                              teamMap[game.away_team_id]?.name ??
-                              t("common.teamFallback", { id: game.away_team_id }),
-                            homeTeamName:
-                              teamMap[game.home_team_id]?.name ??
-                              t("common.teamFallback", { id: game.home_team_id }),
+                            awayTeamName: away.name,
+                            homeTeamName: home.name,
                           })}
                         >
                           <div className="mini-game-head">
@@ -788,8 +779,10 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
                       const isHome = game.home_team_id === teamNumericId;
                       const teamScore = isHome ? game.home_score : game.away_score;
                       const opponentScore = isHome ? game.away_score : game.home_score;
-                      const opponentId = isHome ? game.away_team_id : game.home_team_id;
-                      const opponentName = opponentMap[opponentId] ?? t("common.teamFallback", { id: opponentId });
+                      const opponent = getGameTeamData(game, isHome ? "away" : "home", teamMap);
+                      const away = getGameTeamData(game, "away", teamMap);
+                      const home = getGameTeamData(game, "home", teamMap);
+                      const opponentName = opponent.name;
                       return (
                         <button
                           className="mini-game-card mini-game-card-button"
@@ -797,12 +790,8 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
                           type="button"
                           onClick={() => openGameDetails(game.id)}
                           aria-label={t("games.viewDetailsFor", {
-                            awayTeamName:
-                              teamMap[game.away_team_id]?.name ??
-                              t("common.teamFallback", { id: game.away_team_id }),
-                            homeTeamName:
-                              teamMap[game.home_team_id]?.name ??
-                              t("common.teamFallback", { id: game.home_team_id }),
+                            awayTeamName: away.name,
+                            homeTeamName: home.name,
                           })}
                         >
                           <div className="mini-game-head">
@@ -831,11 +820,9 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
         awayTeam={
           selectedGame
             ? {
-                name:
-                  teamMap[selectedGame.away_team_id]?.name ??
-                  t("common.teamFallback", { id: selectedGame.away_team_id }),
-                logoSrc: teamMap[selectedGame.away_team_id]?.logo_url
-                  ? resolveApiUrl(teamMap[selectedGame.away_team_id].logo_url as string)
+                name: getGameTeamData(selectedGame, "away", teamMap).name,
+                logoSrc: getGameTeamData(selectedGame, "away", teamMap).team?.logo_url
+                  ? resolveApiUrl(getGameTeamData(selectedGame, "away", teamMap).team?.logo_url as string)
                   : null,
               }
             : null
@@ -843,11 +830,9 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
         homeTeam={
           selectedGame
             ? {
-                name:
-                  teamMap[selectedGame.home_team_id]?.name ??
-                  t("common.teamFallback", { id: selectedGame.home_team_id }),
-                logoSrc: teamMap[selectedGame.home_team_id]?.logo_url
-                  ? resolveApiUrl(teamMap[selectedGame.home_team_id].logo_url as string)
+                name: getGameTeamData(selectedGame, "home", teamMap).name,
+                logoSrc: getGameTeamData(selectedGame, "home", teamMap).team?.logo_url
+                  ? resolveApiUrl(getGameTeamData(selectedGame, "home", teamMap).team?.logo_url as string)
                   : null,
               }
             : null

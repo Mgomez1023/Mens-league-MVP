@@ -73,8 +73,8 @@ export function PublicGameCard({
   const fieldLabel = game.field || t("common.fieldTbd");
   const hasScheduleFooter = layout === "schedule" && (detailLabel || footer);
   const detailsAriaLabel = t("games.viewDetailsFor", {
-    awayTeamName: homeTeamName,
-    homeTeamName: awayTeamName,
+    awayTeamName,
+    homeTeamName,
   });
 
   return (

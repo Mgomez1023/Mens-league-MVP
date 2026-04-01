@@ -21,6 +21,8 @@ def compute_team_records(db: Session, team_ids: list[int]):
             continue
         if game.home_score is None or game.away_score is None:
             continue
+        if game.home_team_id not in records or game.away_team_id not in records:
+            continue
 
         if game.home_score > game.away_score:
             records[game.home_team_id]["wins"] += 1
