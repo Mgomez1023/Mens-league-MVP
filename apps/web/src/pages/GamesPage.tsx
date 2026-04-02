@@ -883,9 +883,11 @@ export default function GamesPage({
         title={t("games.title")}
         description=""
         titleAction={
-          <div className="inline-actions schedule-page-toolbar">
+          <div className="schedule-page-toolbar">
             <button
-              className="schedule-browser-icon-button schedule-toolbar-button"
+              className={`schedule-browser-icon-button schedule-toolbar-button ${
+                isAdmin ? "" : "schedule-toolbar-button-compact"
+              }`}
               type="button"
               onClick={handleBrowseScheduleToggle}
               aria-label={browseScheduleOpen ? t("games.hideScheduleBrowser") : t("games.browseSchedule")}

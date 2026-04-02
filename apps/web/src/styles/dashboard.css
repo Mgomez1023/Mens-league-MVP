@@ -665,7 +665,16 @@ body {
 }
 
 .schedule-page-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   justify-content: flex-end;
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.schedule-page-toolbar > * {
+  flex: 0 0 auto;
 }
 
 .schedule-toolbar-button {
@@ -673,6 +682,15 @@ body {
   min-width: 2.5rem;
   padding: 0 0.72rem;
   gap: 0.45rem;
+}
+
+.schedule-toolbar-button-compact {
+  width: 2.5rem;
+  padding: 0;
+}
+
+.schedule-toolbar-button-compact .schedule-toolbar-button-label {
+  display: none;
 }
 
 .schedule-toolbar-button-label {
@@ -686,6 +704,17 @@ body {
 
 @media (min-width: 720px) {
   .schedule-toolbar-button-label {
+    display: inline;
+  }
+}
+
+@media (min-width: 920px) {
+  .schedule-toolbar-button-compact {
+    width: auto;
+    padding: 0 0.72rem;
+  }
+
+  .schedule-toolbar-button-compact .schedule-toolbar-button-label {
     display: inline;
   }
 }
