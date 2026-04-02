@@ -15,6 +15,14 @@ class PostOut(BaseModel):
     image_url: str | None = None
 
 
+class PhotoOut(BaseModel):
+    id: int
+    image_url: str
+    alt: str
+    caption: str | None = None
+    created_at: datetime.datetime
+
+
 class LineupPlayerOut(BaseModel):
     id: int
     team_id: int

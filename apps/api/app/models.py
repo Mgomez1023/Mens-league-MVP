@@ -100,3 +100,15 @@ class Post(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.datetime.utcnow
     )
+
+
+class Photo(Base):
+    __tablename__ = "photos"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    alt: Mapped[str] = mapped_column(String, nullable=False)
+    caption: Mapped[str | None] = mapped_column(Text, nullable=True)
+    photo_image: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    photo_updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.datetime.utcnow
+    )

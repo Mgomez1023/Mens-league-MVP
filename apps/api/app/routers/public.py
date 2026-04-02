@@ -11,10 +11,12 @@ from sqlalchemy.orm import Session, aliased
 
 from ..deps import get_current_admin, get_current_user, get_db, require_team_access
 from ..config import settings
-from ..models import PlayerAppearance, Team, Game, Player, Post, Season, User
-from ..schemas import PlayerAppearanceSummaryOut, PostOut
+from ..models import PlayerAppearance, Team, Game, Player, Post, Photo, Season, User
+from ..schemas import PlayerAppearanceSummaryOut, PhotoOut, PostOut
 from ..standings import compute_team_records
 from ..storage import (
+    photo_image_path,
+    photo_image_url,
     player_image_path,
     player_image_url,
     post_image_path,
@@ -83,6 +85,23 @@ def serialize_post(post: Post):
         "author_name": post.author_name,
         "created_at": post.created_at,
         "image_url": post_image_url(post.id),
+    }
+
+
+def serialize_photo(photo: Photo):
+    image_url = photo_image_url(
+        photo.id,
+        has_db_image=photo.photo_image is not None,
+        image_updated_at=photo.photo_updated_at,
+    )
+    if not image_url:
+        raise HTTPException(status_code=500, detail="Photo file is missing")
+    return {
+        "id": photo.id,
+        "image_url": image_url,
+        "alt": photo.alt,
+        "caption": photo.caption,
+        "created_at": photo.created_at,
     }
 
 
@@ -195,6 +214,38 @@ def list_posts(db: Session = Depends(get_db)):
     return [serialize_post(post) for post in posts]
 
 
+@router.get("/photos", response_model=list[PhotoOut])
+def list_photos(db: Session = Depends(get_db)):
+    photos = db.query(Photo).order_by(Photo.created_at.desc(), Photo.id.desc()).all()
+    serialized: list[dict[str, object]] = []
+    for photo in photos:
+        try:
+            serialized.append(serialize_photo(photo))
+        except HTTPException:
+            continue
+    return serialized
+
+
+@router.get("/photos/{photo_id}/image")
+def get_photo_image(photo_id: int, db: Session = Depends(get_db)):
+    photo = db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    if photo.photo_image:
+        return Response(
+            content=photo.photo_image,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
+
+    path = photo_image_path(photo_id)
+    if path.exists():
+        return FileResponse(path, media_type="image/jpeg")
+
+    raise HTTPException(status_code=404, detail="Image not found")
+
+
 @router.post("/posts", response_model=PostOut)
 def create_post(
     content: str = Form(...),
@@ -250,6 +301,46 @@ def create_post(
     return serialize_post(post)
 
 
+@router.post("/photos", response_model=PhotoOut)
+def create_photo(
+    image: UploadFile = File(...),
+    caption: str | None = Form(default=None),
+    alt: str | None = Form(default=None),
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Invalid image type")
+
+    trimmed_caption = caption.strip() if caption else None
+    trimmed_alt = alt.strip() if alt else None
+    fallback_alt = (image.filename or "League photo").rsplit(".", 1)[0].replace("_", " ").strip()
+    photo = Photo(
+        alt=trimmed_alt or trimmed_caption or fallback_alt or "League photo",
+        caption=trimmed_caption or None,
+    )
+    db.add(photo)
+    db.flush()
+
+    output = BytesIO()
+    try:
+        picture = Image.open(image.file)
+        picture = picture.convert("RGB")
+        picture.thumbnail((2200, 2200), Image.Resampling.LANCZOS)
+        picture.save(output, format="JPEG", quality=90)
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Unable to process image") from exc
+
+    output.seek(0)
+    photo.photo_image = output.getvalue()
+    photo.photo_updated_at = datetime.datetime.utcnow()
+
+    db.commit()
+    db.refresh(photo)
+    return serialize_photo(photo)
+
+
 @router.delete("/posts/{post_id}", status_code=204)
 def delete_post(
     post_id: int,
@@ -262,6 +353,29 @@ def delete_post(
 
     image_path = post_image_path(post_id)
     db.delete(post)
+    db.commit()
+
+    if image_path.exists():
+        try:
+            image_path.unlink()
+        except Exception:
+            pass
+
+    return Response(status_code=204)
+
+
+@router.delete("/photos/{photo_id}", status_code=204)
+def delete_photo(
+    photo_id: int,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    photo = db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    image_path = photo_image_path(photo_id)
+    db.delete(photo)
     db.commit()
 
     if image_path.exists():

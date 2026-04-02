@@ -64,6 +64,33 @@ def ensure_player_columns():
 run_startup_step(ensure_metadata)
 run_startup_step(ensure_player_columns)
 
+
+def ensure_photo_columns():
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns("photos")}
+    statements: list[str] = []
+
+    if "photo_image" not in columns:
+        if engine.dialect.name == "postgresql":
+            statements.append("ALTER TABLE photos ADD COLUMN photo_image BYTEA")
+        else:
+            statements.append("ALTER TABLE photos ADD COLUMN photo_image BLOB")
+    if "photo_updated_at" not in columns:
+        if engine.dialect.name == "postgresql":
+            statements.append("ALTER TABLE photos ADD COLUMN photo_updated_at TIMESTAMP")
+        else:
+            statements.append("ALTER TABLE photos ADD COLUMN photo_updated_at DATETIME")
+
+    if not statements:
+        return
+
+    with engine.begin() as conn:
+        for statement in statements:
+            conn.execute(text(statement))
+
+
+run_startup_step(ensure_photo_columns)
+
 def ensure_game_columns():
     inspector = inspect(engine)
     if "games" not in inspector.get_table_names():
