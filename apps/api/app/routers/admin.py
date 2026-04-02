@@ -267,7 +267,7 @@ class PlayerUpdate(BaseModel):
 
 @router.get("/teams")
 def list_teams(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    teams = db.query(Team).order_by(Team.name.asc()).all()
+    teams = db.query(Team).filter(Team.is_visible.is_(True)).order_by(Team.name.asc()).all()
     records = compute_team_records(db, [team.id for team in teams])
     return [serialize_team(team, records.get(team.id, {})) for team in teams]
 

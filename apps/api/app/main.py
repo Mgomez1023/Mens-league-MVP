@@ -7,7 +7,7 @@ from .config import settings
 from .db import Base, engine, SessionLocal
 from datetime import date
 
-from .models import PlayerAppearance, Season, Team, User
+from .models import Game, PlayerAppearance, Season, Team, User
 from .security import hash_password
 from sqlalchemy import inspect, text
 import re
@@ -209,6 +209,7 @@ def ensure_team_columns():
     inspector = inspect(engine)
     columns = {column["name"] for column in inspector.get_columns("teams")}
     statements: list[str] = []
+    added_visibility = False
 
     if "logo_image" not in columns:
         if engine.dialect.name == "postgresql":
@@ -222,12 +223,51 @@ def ensure_team_columns():
         else:
             statements.append("ALTER TABLE teams ADD COLUMN logo_updated_at DATETIME")
 
+    if "is_visible" not in columns:
+        statements.append("ALTER TABLE teams ADD COLUMN is_visible BOOLEAN NOT NULL DEFAULT TRUE")
+        added_visibility = True
+
     if not statements:
         return
 
     with engine.begin() as conn:
         for statement in statements:
             conn.execute(text(statement))
+
+    if not added_visibility:
+        return
+
+    db: Session = SessionLocal()
+    try:
+        official_teams = db.query(Team).order_by(Team.id.asc()).limit(10).all()
+        official_team_ids = {team.id for team in official_teams}
+
+        for team in db.query(Team).all():
+            team.is_visible = team.id in official_team_ids
+
+        hidden_teams = {
+            team.id: team.name
+            for team in db.query(Team).filter(Team.is_visible.is_(False)).all()
+        }
+        if hidden_teams:
+            games = (
+                db.query(Game)
+                .filter((Game.home_team_id.in_(hidden_teams)) | (Game.away_team_id.in_(hidden_teams)))
+                .all()
+            )
+            for game in games:
+                if game.home_team_id in hidden_teams:
+                    if not game.home_team_name:
+                        game.home_team_name = hidden_teams[game.home_team_id]
+                    game.home_team_id = None
+                if game.away_team_id in hidden_teams:
+                    if not game.away_team_name:
+                        game.away_team_name = hidden_teams[game.away_team_id]
+                    game.away_team_id = None
+
+        db.commit()
+    finally:
+        db.close()
 
 run_startup_step(ensure_team_columns)
 
@@ -352,14 +392,19 @@ def seed_auth_users():
             db.add(Season(year=current_year, name="Regular Season"))
             db.commit()
 
-        if db.query(Team).count() == 0:
+        if db.query(Team).filter(Team.is_visible.is_(True)).count() == 0:
             db.add_all([
-                Team(name="Cubs", home_field="Field 1"),
-                Team(name="Sox", home_field="Field 2"),
+                Team(name="Cubs", home_field="Field 1", is_visible=True),
+                Team(name="Sox", home_field="Field 2", is_visible=True),
             ])
             db.commit()
 
-        teams = db.query(Team).order_by(Team.id.asc()).all()
+        teams = (
+            db.query(Team)
+            .filter(Team.is_visible.is_(True))
+            .order_by(Team.id.asc())
+            .all()
+        )
         for team in teams:
             manager_email = build_manager_email(team.name)
             manager = (

@@ -28,6 +28,7 @@ class Team(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True, index=True)
     home_field: Mapped[str | None] = mapped_column(String, nullable=True)
+    is_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     logo_image: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     logo_updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 

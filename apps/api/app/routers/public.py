@@ -177,7 +177,7 @@ def build_player_appearance_summary(player_id: int, db: Session):
 
 @router.get("/teams")
 def list_teams(db: Session = Depends(get_db)):
-    teams = db.query(Team).order_by(Team.name.asc()).all()
+    teams = db.query(Team).filter(Team.is_visible.is_(True)).order_by(Team.name.asc()).all()
     records = compute_team_records(db, [team.id for team in teams])
     return [serialize_team(team, records.get(team.id, {})) for team in teams]
 
@@ -571,7 +571,7 @@ def import_games_csv(
 
     header_map = {normalize_key(name): name for name in reader.fieldnames if name}
 
-    teams = db.query(Team).all()
+    teams = db.query(Team).filter(Team.is_visible.is_(True)).all()
     team_map = {normalize_team(team.name): team for team in teams}
 
     season = db.query(Season).order_by(Season.year.desc()).first()
@@ -593,16 +593,20 @@ def import_games_csv(
         value = str(value).strip()
         return value if value else None
 
-    def get_or_create_team(name: str) -> Team:
+    def resolve_team(name: str) -> tuple[int | None, str | None]:
         normalized = normalize_team(name)
         existing = team_map.get(normalized)
         if existing:
-            return existing
-        team = Team(name=name.strip())
-        db.add(team)
-        db.flush()
-        team_map[normalized] = team
-        return team
+            return existing.id, None
+        return None, name.strip()
+
+    def build_team_key(team_id: int | None, team_name: str | None):
+        if team_id is not None:
+            return ("team", str(team_id))
+        normalized_name = normalize_team(team_name or "")
+        if normalized_name:
+            return ("name", normalized_name)
+        return None
 
     allowed_statuses = {"SCHEDULED", "FINAL", "POSTPONED", "CANCELLED"}
 
@@ -635,10 +639,17 @@ def import_games_csv(
             )
             continue
 
-        home_team = get_or_create_team(home_name)
-        away_team = get_or_create_team(away_name)
+        home_team_id, home_team_name = resolve_team(home_name)
+        away_team_id, away_team_name = resolve_team(away_name)
 
-        if home_team.id == away_team.id:
+        home_team_key = build_team_key(home_team_id, home_team_name)
+        away_team_key = build_team_key(away_team_id, away_team_name)
+        if not home_team_key or not away_team_key:
+            skipped += 1
+            errors.append({"row": row_index, "message": "home_team and away_team are required"})
+            continue
+
+        if home_team_key == away_team_key:
             skipped += 1
             errors.append({"row": row_index, "message": "home_team and away_team must differ"})
             continue
@@ -687,14 +698,14 @@ def import_games_csv(
             else:
                 status = "SCHEDULED"
 
-        existing = (
-            db.query(Game)
-            .filter(
-                Game.date == game_date,
-                Game.home_team_id == home_team.id,
-                Game.away_team_id == away_team.id,
-            )
-            .first()
+        existing = next(
+            (
+                game
+                for game in db.query(Game).filter(Game.date == game_date).all()
+                if build_team_key(game.home_team_id, game.home_team_name) == home_team_key
+                and build_team_key(game.away_team_id, game.away_team_name) == away_team_key
+            ),
+            None,
         )
 
         normalized_time: str | None = None
@@ -723,6 +734,10 @@ def import_games_csv(
                 normalized_time = f"{hour:02d}:{minute:02d}"
 
         if existing:
+            existing.home_team_id = home_team_id
+            existing.away_team_id = away_team_id
+            existing.home_team_name = home_team_name
+            existing.away_team_name = away_team_name
             existing.field = field_value
             if has_time:
                 existing.time = normalized_time
@@ -736,8 +751,10 @@ def import_games_csv(
                 date=game_date,
                 time=normalized_time,
                 field=field_value,
-                home_team_id=home_team.id,
-                away_team_id=away_team.id,
+                home_team_id=home_team_id,
+                away_team_id=away_team_id,
+                home_team_name=home_team_name,
+                away_team_name=away_team_name,
                 home_score=home_score,
                 away_score=away_score,
                 status=status,
