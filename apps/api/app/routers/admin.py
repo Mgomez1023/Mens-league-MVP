@@ -242,6 +242,11 @@ class TeamCreate(BaseModel):
     home_field: str | None = None
 
 
+class TeamUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1)
+    home_field: str | None = None
+
+
 class PlayerCreate(BaseModel):
     first_name: str = Field(..., min_length=1)
     last_name: str = Field(..., min_length=1)
@@ -282,6 +287,42 @@ def create_team(
     commit_or_raise(db, conflict_detail="Team name already exists")
     db.refresh(team)
     return serialize_team(team, {"wins": 0, "losses": 0})
+
+
+@router.patch("/teams/{team_id}")
+def update_team(
+    team_id: int,
+    payload: TeamUpdate,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    team = db.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    if payload.name is not None:
+        trimmed_name = payload.name.strip()
+        if not trimmed_name:
+            raise HTTPException(status_code=400, detail="Team name is required")
+
+        existing = (
+            db.query(Team)
+            .filter(Team.name == trimmed_name, Team.id != team_id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(status_code=400, detail="Team name already exists")
+
+        team.name = trimmed_name
+
+    if payload.home_field is not None:
+        trimmed_field = payload.home_field.strip()
+        team.home_field = trimmed_field or None
+
+    commit_or_raise(db, conflict_detail="Team name already exists")
+    db.refresh(team)
+    records = compute_team_records(db, [team.id])
+    return serialize_team(team, records.get(team.id, {}))
 
 
 @router.delete("/teams/{team_id}")
