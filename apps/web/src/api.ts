@@ -286,6 +286,18 @@ export async function createTeam(payload: { name: string; home_field?: string | 
   return res.json() as Promise<Team>;
 }
 
+export async function updateTeam(
+  teamId: number,
+  payload: { name?: string; home_field?: string | null },
+) {
+  const res = await authenticatedFetch(`${API_BASE}/admin/teams/${teamId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return res.json() as Promise<Team>;
+}
+
 export async function deleteTeam(teamId: number, options?: { force?: boolean }) {
   const query = options?.force ? "?force=true" : "";
   await authenticatedFetch(`${API_BASE}/admin/teams/${teamId}${query}`, {

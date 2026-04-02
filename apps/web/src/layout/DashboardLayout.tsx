@@ -31,6 +31,7 @@ export default function DashboardLayout({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const adminPanelOpen = authed && isAdmin && adminMenuOpen;
   const publicLinks: Array<{ to: string; label: string; end?: boolean }> = [
     { to: "/games", label: t("nav.games") },
     { to: "/standings", label: t("nav.standings") },
@@ -60,12 +61,6 @@ export default function DashboardLayout({
   };
 
   useEffect(() => {
-    if (!authed || !isAdmin) {
-      setAdminMenuOpen(false);
-    }
-  }, [authed, isAdmin]);
-
-  useEffect(() => {
     const shouldLockScroll = open;
     const previousOverflow = document.body.style.overflow;
 
@@ -81,7 +76,8 @@ export default function DashboardLayout({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        closePanels();
+        setOpen(false);
+        setAdminMenuOpen(false);
       }
     };
 
@@ -159,7 +155,7 @@ export default function DashboardLayout({
               <button
                 className="admin-menu-trigger"
                 type="button"
-                aria-expanded={adminMenuOpen}
+                aria-expanded={adminPanelOpen}
                 aria-controls="admin-panel"
                 onClick={() => setAdminMenuOpen((prev) => !prev)}
               >
@@ -173,9 +169,9 @@ export default function DashboardLayout({
         </div>
       )}
 
-      <div className={`admin-panel-backdrop ${adminMenuOpen ? "open" : ""}`} onClick={closeAdminMenu} />
+      <div className={`admin-panel-backdrop ${adminPanelOpen ? "open" : ""}`} onClick={closeAdminMenu} />
 
-      <aside className={`admin-panel ${adminMenuOpen ? "open" : ""}`} id="admin-panel" aria-hidden={!adminMenuOpen}>
+      <aside className={`admin-panel ${adminPanelOpen ? "open" : ""}`} id="admin-panel" aria-hidden={!adminPanelOpen}>
         <div className="admin-panel-header">
           <div>
             <p className="admin-panel-kicker">{t("admin.commissioner")}</p>
@@ -258,6 +254,13 @@ export default function DashboardLayout({
                 {link.label}
               </NavLink>
             ))}
+            <NavLink
+              to="/contact"
+              className={({ isActive }) => `drawer-link ${isActive ? "active" : ""}`}
+              onClick={closeDrawer}
+            >
+              {t("nav.contact")}
+            </NavLink>
           </nav>
         </div>
 
@@ -336,6 +339,9 @@ export default function DashboardLayout({
             <p className="footer-label">{t("footer.contact")}</p>
             <a className="footer-link" href={`mailto:${leagueProfile.email}`}>
               {leagueProfile.email}
+            </a>
+            <a className="footer-link" href={leagueProfile.phoneHref}>
+              {leagueProfile.phone}
             </a>
             <p className="footer-copy">{t("footer.portalCopy")}</p>
           </div>

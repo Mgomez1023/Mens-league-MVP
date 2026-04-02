@@ -16,11 +16,13 @@ import {
   getCachedGames,
   getCachedTeams,
   importGamesCsv,
+  importRosterCsv,
   resolveApiUrl,
   saveGameLineup,
   updateGame,
 } from "../api";
-import type { Game, GameLineup, ImportGamesResult, Team, UserRole } from "../api";
+import type { Game, GameLineup, Team, UserRole } from "../api";
+import { CsvImportModal } from "../components/CsvImportModal";
 import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import { PublicGameCard } from "../components/PublicGameCard";
 import {
@@ -34,6 +36,11 @@ import {
   TeamAvatar,
 } from "../components/ui";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import {
+  transformScheduleCsvForImport,
+  type CsvImportMode,
+  type CsvImportResult,
+} from "../utils/csvImport";
 import {
   buildTeamMap,
   formatFullGameDate,
@@ -98,10 +105,8 @@ export default function GamesPage({
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<ImportGamesResult | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [fileInputKey, setFileInputKey] = useState(0);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importModalMode, setImportModalMode] = useState<CsvImportMode>("schedule");
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
@@ -121,14 +126,14 @@ export default function GamesPage({
     status: "all",
   });
   const [browseScheduleOpen, setBrowseScheduleOpen] = useState(false);
+  const [scheduleOperationsOpen, setScheduleOperationsOpen] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [editData, setEditData] = useState(emptyForm);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
-  const browseScheduleRef = useRef<HTMLDivElement | null>(null);
   const scheduleGroupRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const hasAutoScrolledToCurrentGroupRef = useRef(false);
 
-  useBodyScrollLock(formOpen || !!editingGame || !!lineupGame || !!scoreGame);
+  useBodyScrollLock(formOpen || !!editingGame || !!lineupGame || !!scoreGame || importModalOpen);
 
   const statusOptions = [
     { value: "SCHEDULED", label: t("games.status.scheduled") },
@@ -415,15 +420,11 @@ export default function GamesPage({
   };
 
   const handleBrowseScheduleToggle = () => {
-    setBrowseScheduleOpen((prev) => {
-      const next = !prev;
-      if (next) {
-        window.requestAnimationFrame(() => {
-          browseScheduleRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      }
-      return next;
-    });
+    setBrowseScheduleOpen((prev) => !prev);
+  };
+
+  const handleScheduleOperationsToggle = () => {
+    setScheduleOperationsOpen((prev) => !prev);
   };
 
   const handleFormChange = (field: keyof typeof emptyForm, value: string) => {
@@ -668,31 +669,59 @@ export default function GamesPage({
     }
   };
 
-  const handleImportGames = async (file: File) => {
-    setImporting(true);
-    setImportError(null);
-    setImportResult(null);
+  const refreshAdminData = async () => {
+    const [freshGames, freshTeams] = await Promise.all([fetchGames(), fetchTeams()]);
+    setGames(freshGames);
+    setTeams(freshTeams);
+  };
+
+  const handleScheduleCsvImport = async (file: File): Promise<CsvImportResult> => {
     setNotice(null);
+    setError(null);
+
     try {
-      const result = await importGamesCsv(file);
-      setImportResult(result);
-      setFileInputKey((prev) => prev + 1);
-      const [freshGames, freshTeams] = await Promise.all([fetchGames(), fetchTeams()]);
-      setGames(freshGames);
-      setTeams(freshTeams);
+      const rawText = await file.text();
+      const normalizedText = transformScheduleCsvForImport(rawText);
+      const normalizedFile = new File([normalizedText], file.name, { type: "text/csv" });
+      const result = await importGamesCsv(normalizedFile);
+      await refreshAdminData();
       setNotice(t("games.csvProcessed"));
+      return result;
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
-        return;
+        throw new Error(t("auth.adminAccessRequired"));
       }
       if (err instanceof PermissionError) {
-        setImportError(t("auth.adminAccessRequired"));
-        return;
+        throw new Error(err.detail ?? t("auth.adminAccessRequired"));
       }
-      setImportError(t("games.importError"));
-    } finally {
-      setImporting(false);
+      if (err instanceof ApiError && err.detail) {
+        throw new Error(err.detail);
+      }
+      throw new Error(t("games.importError"));
+    }
+  };
+
+  const handleRosterCsvImport = async (teamId: number, file: File): Promise<CsvImportResult> => {
+    setNotice(null);
+    setError(null);
+
+    try {
+      const result = await importRosterCsv(teamId, file);
+      setNotice(t("roster.csvProcessed"));
+      return result;
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        throw new Error(t("auth.adminAccessRequired"));
+      }
+      if (err instanceof PermissionError) {
+        throw new Error(err.detail ?? t("auth.adminAccessRequired"));
+      }
+      if (err instanceof ApiError && err.detail) {
+        throw new Error(err.detail);
+      }
+      throw new Error(t("roster.importError"));
     }
   };
 
@@ -854,33 +883,62 @@ export default function GamesPage({
         title={t("games.title")}
         description=""
         titleAction={
-          <button
-            className="schedule-browser-icon-button"
-            type="button"
-            onClick={handleBrowseScheduleToggle}
-            aria-label={browseScheduleOpen ? t("games.hideScheduleBrowser") : t("games.browseSchedule")}
-            aria-pressed={browseScheduleOpen}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M7 3v2M17 3v2M4 8h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2 6h3v3H8zm5 0h3v3h-3zM8 15h3"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span className="visually-hidden">
-              {browseScheduleOpen ? t("games.hideScheduleBrowser") : t("games.browseSchedule")}
-            </span>
-            
-          </button> 
+          <div className="inline-actions schedule-page-toolbar">
+            <button
+              className="schedule-browser-icon-button schedule-toolbar-button"
+              type="button"
+              onClick={handleBrowseScheduleToggle}
+              aria-label={browseScheduleOpen ? t("games.hideScheduleBrowser") : t("games.browseSchedule")}
+              aria-pressed={browseScheduleOpen}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M10.5 5.5a5 5 0 1 1 0 10a5 5 0 0 1 0-10Zm0 0v0M15 15l4 4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="schedule-toolbar-button-label">
+                {browseScheduleOpen ? t("games.hideScheduleBrowser") : t("games.browseSchedule")}
+              </span>
+            </button>
+            {isAdmin ? (
+              <button
+                className="schedule-browser-icon-button schedule-toolbar-button"
+                type="button"
+                onClick={handleScheduleOperationsToggle}
+                aria-label={
+                  scheduleOperationsOpen
+                    ? t("games.hideScheduleOperations")
+                    : t("games.showScheduleOperations")
+                }
+                aria-pressed={scheduleOperationsOpen}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 7h10M18 7h2M10 12h10M4 12h2M4 17h6M14 17h6M14 5v4M8 10v4M12 15v4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span className="schedule-toolbar-button-label">
+                  {t("games.scheduleOperations")}
+                </span>
+              </button>
+            ) : null}
+          </div>
         }
       />
 
-      {isAdmin && (
+      {isAdmin && scheduleOperationsOpen && (
         <>
+          <div>
           <SurfaceCard className="admin-ops-card">
             <SectionHeader title={t("games.scheduleOperations")} description="" />
             <div className="admin-ops-actions">
@@ -899,37 +957,24 @@ export default function GamesPage({
               >
                 {formOpen ? t("common.closeForm") : t("buttons.addGame")}
               </button>
-              <label className="button button-secondary file-button-inline">
-                {importing ? `${t("buttons.importCsv")}...` : t("buttons.importCsv")}
-                <input
-                  key={fileInputKey}
-                  type="file"
-                  accept=".csv,text/csv"
-                  disabled={importing}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) handleImportGames(file);
-                  }}
-                />
-              </label>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => {
+                  setImportModalMode("schedule");
+                  setImportModalOpen(true);
+                }}
+              >
+                {t("buttons.importCsv")}
+              </button>
             </div>
-            {importError && <Notice variant="error">{importError}</Notice>}
-            {importResult && (
-              <Notice variant="success">
-                {t("games.importSummary", {
-                  created: importResult.created,
-                  updated: importResult.updated,
-                  skipped: importResult.skipped,
-                  errors: importResult.errors.length,
-                })}
-              </Notice>
-            )}
           </SurfaceCard>
+          </div>
         </>
       )}
 
       {browseScheduleOpen && (
-        <div ref={browseScheduleRef}>
+        <div>
           <SurfaceCard>
             <SectionHeader
               title={t("games.browseSchedule")}
@@ -1156,6 +1201,17 @@ export default function GamesPage({
             </div>
           )}
         </>
+      )}
+
+      {isAdmin && (
+        <CsvImportModal
+          open={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          teams={teams}
+          defaultMode={importModalMode}
+          onSubmitSchedule={handleScheduleCsvImport}
+          onSubmitRoster={handleRosterCsvImport}
+        />
       )}
 
       {isAdmin && formOpen && (

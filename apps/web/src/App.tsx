@@ -9,6 +9,7 @@ import RosterPage from "./pages/RosterPage";
 import PostsPage from "./pages/PostsPage";
 import StandingsPage from "./pages/StandingsPage";
 import RulesPage from "./pages/RulesPage";
+import ContactPage from "./pages/ContactPage";
 import { clearToken, getRoleClaim, getTokenClaims, isAdminClaim, onUnauthorized, getToken } from "./api";
 import type { UserRole } from "./api";
 
@@ -91,6 +92,7 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="standings" element={<StandingsPage />} />
         <Route path="rules" element={<RulesPage />} />
+        <Route path="contact" element={<ContactPage />} />
         <Route
           path="teams"
           element={
@@ -126,7 +128,7 @@ export default function App() {
         />
         <Route
           path="posts"
-          element={<PostsPage isAdmin={auth.isAdmin} onAuthError={handleAuthError} />}
+          element={<PostsPage />}
         />
         <Route
           path="teams/:teamId/roster"

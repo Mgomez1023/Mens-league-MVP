@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FaFacebookF, FaYoutube } from "react-icons/fa6";
 import { Link } from "react-router-dom";
-import { fetchGamesPublic, fetchTeamsPublic, getPosts, resolveApiUrl } from "../api";
-import type { Game, Post, Team } from "../api";
+import { fetchGamesPublic, fetchTeamsPublic, resolveApiUrl } from "../api";
+import type { Game, Team } from "../api";
 import homeHeroImage from "../assets/Background.png";
+import { FacebookPageEmbed } from "../components/FacebookPageEmbed";
 import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import { PublicGameCard } from "../components/PublicGameCard";
 import {
@@ -12,20 +13,17 @@ import {
   LoadingState,
   Notice,
   SectionHeader,
-  StatusChip,
   SurfaceCard,
   TeamAvatar,
 } from "../components/ui";
-import { leagueProfile } from "../utils/site";
+import { facebookPageUrl, leagueProfile } from "../utils/site";
 import {
   buildTeamMap,
-  formatDateTime,
   getGameTeamData,
   getRecentResults,
   getRecord,
   getUpcomingGames,
   sortStandings,
-  truncate,
 } from "../utils/league";
 
 function HomeSocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]["icon"] }) {
@@ -40,7 +38,6 @@ export default function HomePage() {
   const { t } = useTranslation();
   const [teams, setTeams] = useState<Team[]>([]);
   const [games, setGames] = useState<Game[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
@@ -52,23 +49,17 @@ export default function HomePage() {
       setLoading(true);
       setError(null);
 
-      const [teamsRes, gamesRes, postsRes] = await Promise.allSettled([
+      const [teamsRes, gamesRes] = await Promise.allSettled([
         fetchTeamsPublic(),
         fetchGamesPublic(),
-        getPosts(),
       ]);
 
       if (!active) return;
 
       if (teamsRes.status === "fulfilled") setTeams(teamsRes.value);
       if (gamesRes.status === "fulfilled") setGames(gamesRes.value);
-      if (postsRes.status === "fulfilled") setPosts(postsRes.value);
 
-      if (
-        teamsRes.status === "rejected" &&
-        gamesRes.status === "rejected" &&
-        postsRes.status === "rejected"
-      ) {
+      if (teamsRes.status === "rejected" && gamesRes.status === "rejected") {
         setError(t("home.loadError"));
       }
 
@@ -86,7 +77,6 @@ export default function HomePage() {
   const standingsSnapshot = useMemo(() => standings.slice(0, 5), [standings]);
   const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 3), [games]);
   const recentResults = useMemo(() => getRecentResults(games).slice(0, 4), [games]);
-  const latestPosts = useMemo(() => posts.slice(0, 4), [posts]);
   const selectedGame = useMemo(
     () => games.find((game) => game.id === selectedGameId) ?? null,
     [games, selectedGameId],
@@ -294,42 +284,15 @@ export default function HomePage() {
                 description={t("")}
                 action={
                   <Link className="button button-secondary button-small" to="/posts">
-                    {t("buttons.allAnnouncements")}
+                    {t("buttons.viewAllUpdates")}
                   </Link>
                 }
               />
-              {latestPosts.length === 0 ? (
-                <EmptyState
-                  compact
-                  title={t("home.noAnnouncementsTitle")}
-                  description={t("home.noAnnouncementsDescription")}
-                />
-              ) : (
-                <div className="announcement-list">
-                  {latestPosts.map((post) => (
-                    <article className="announcement-card" key={post.id}>
-                      <div className="announcement-header">
-                        <div>
-                          <p className="announcement-author">{post.author_name}</p>
-                          <time className="announcement-time" dateTime={post.created_at}>
-                            {formatDateTime(post.created_at)}
-                          </time>
-                        </div>
-                        <StatusChip tone="accent">{t("home.announcementBadge")}</StatusChip>
-                      </div>
-                      <p className="announcement-content">{truncate(post.content, 220)}</p>
-                      {post.image_url && (
-                        <img
-                          className="announcement-image"
-                          src={resolveApiUrl(post.image_url)}
-                          alt={t("common.announcementImageAlt")}
-                          loading="lazy"
-                        />
-                      )}
-                    </article>
-                  ))}
-                </div>
-              )}
+              <FacebookPageEmbed
+                pageUrl={facebookPageUrl}
+                height={460}
+                variant="compact"
+              />
             </SurfaceCard>
           </div>
 
@@ -429,6 +392,10 @@ export default function HomePage() {
                 <Link className="quick-link-card" to="/posts">
                   <strong>{t("home.announcementsTitle")}</strong>
                   <span>{t("home.announcementsLinkDescription")}</span>
+                </Link>
+                <Link className="quick-link-card" to="/contact">
+                  <strong>{t("home.contactTitle")}</strong>
+                  <span>{t("home.contactDescription")}</span>
                 </Link>
               </div>
             </SurfaceCard>

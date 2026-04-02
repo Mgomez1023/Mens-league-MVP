@@ -14,6 +14,7 @@ import {
   fetchRosterPublic,
   fetchTeams,
   fetchTeamsPublic,
+  importGamesCsv,
   importRosterCsv,
   resolveApiUrl,
   uploadPlayerImage,
@@ -21,6 +22,7 @@ import {
   updatePlayer,
 } from "../api";
 import type { Game, Player, PlayerAppearanceSummary, Team } from "../api";
+import { CsvImportModal } from "../components/CsvImportModal";
 import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import {
   EmptyState,
@@ -33,6 +35,11 @@ import {
   TeamAvatar,
 } from "../components/ui";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import {
+  transformScheduleCsvForImport,
+  type CsvImportMode,
+  type CsvImportResult,
+} from "../utils/csvImport";
 import {
   formatDate,
   formatTime,
@@ -129,17 +136,13 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
   const [playerSummary, setPlayerSummary] = useState<PlayerAppearanceSummary | null>(null);
   const [playerSummaryLoading, setPlayerSummaryLoading] = useState(false);
   const [playerSummaryError, setPlayerSummaryError] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importModalMode, setImportModalMode] = useState<CsvImportMode>("roster");
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [importResult, setImportResult] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    errors: Array<{ row: number; message: string }>;
-  } | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  useBodyScrollLock(modalOpen || !!playerDeleteTarget || !!selectedPlayer || selectedGameId != null);
+  useBodyScrollLock(
+    modalOpen || !!playerDeleteTarget || !!selectedPlayer || selectedGameId != null || importModalOpen,
+  );
 
   useEffect(
     () => () => {
@@ -215,7 +218,7 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
     return () => {
       active = false;
     };
-  }, [authed, isAdmin, onAuthError, refreshKey, t, teamId, teamNumericId]);
+  }, [authed, isAdmin, onAuthError, t, teamId, teamNumericId]);
 
   useEffect(() => {
     if (!selectedPlayer) {
@@ -463,32 +466,73 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
     }
   };
 
-  const handleCsvImport = async (file: File) => {
-    if (!file || importing) return;
-    if (!teamId || Number.isNaN(teamNumericId)) {
-      setError(t("roster.invalidTeam"));
-      return;
-    }
-    setImporting(true);
-    setImportResult(null);
+  const refreshAdminRosterData = async () => {
+    const [rosterPlayers, teamsData, gamesData] = await Promise.all([
+      fetchRoster(teamNumericId),
+      fetchTeams(),
+      fetchGames(),
+    ]);
+    setPlayers(sortRosterPlayers(rosterPlayers));
+    setAllTeams(teamsData);
+    setTeam(teamsData.find((entry) => entry.id === teamNumericId) ?? null);
+    setGames(
+      gamesData.filter(
+        (game) => game.home_team_id === teamNumericId || game.away_team_id === teamNumericId,
+      ),
+    );
+  };
+
+  const handleRosterCsvImport = async (
+    teamIdForImport: number,
+    file: File,
+  ): Promise<CsvImportResult> => {
     setNotice(null);
+    setError(null);
+
     try {
-      const result = await importRosterCsv(teamNumericId, file);
-      setImportResult(result);
-      setRefreshKey((prev) => prev + 1);
+      const result = await importRosterCsv(teamIdForImport, file);
+      await refreshAdminRosterData();
       setNotice(t("roster.csvProcessed"));
+      return result;
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
-        return;
+        throw new Error(t("auth.adminAccessRequired"));
       }
       if (err instanceof PermissionError) {
-        setError(err.detail ?? t("auth.restrictedAccess"));
-        return;
+        throw new Error(err.detail ?? t("auth.restrictedAccess"));
       }
-      setError(t("roster.importError"));
-    } finally {
-      setImporting(false);
+      if (err instanceof ApiError && err.detail) {
+        throw new Error(err.detail);
+      }
+      throw new Error(t("roster.importError"));
+    }
+  };
+
+  const handleScheduleCsvImport = async (file: File): Promise<CsvImportResult> => {
+    setNotice(null);
+    setError(null);
+
+    try {
+      const rawText = await file.text();
+      const normalizedText = transformScheduleCsvForImport(rawText);
+      const normalizedFile = new File([normalizedText], file.name, { type: "text/csv" });
+      const result = await importGamesCsv(normalizedFile);
+      await refreshAdminRosterData();
+      setNotice(t("games.csvProcessed"));
+      return result;
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        throw new Error(t("auth.adminAccessRequired"));
+      }
+      if (err instanceof PermissionError) {
+        throw new Error(err.detail ?? t("auth.adminAccessRequired"));
+      }
+      if (err instanceof ApiError && err.detail) {
+        throw new Error(err.detail);
+      }
+      throw new Error(t("games.importError"));
     }
   };
 
@@ -548,40 +592,38 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
         }
         actions={
           <div className="inline-actions roster-page-actions">
-            {canManageRoster && (
+            {canManageRoster ? (
+              <button className="button button-primary" type="button" onClick={openAddModal}>
+                {t("buttons.addPlayer")}
+              </button>
+            ) : null}
+            {isAdmin ? (
               <>
-                <button className="button button-primary" type="button" onClick={openAddModal}>
-                  {t("buttons.addPlayer")}
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => {
+                    setImportModalMode("roster");
+                    setImportModalOpen(true);
+                  }}
+                >
+                  {t("buttons.importCsv")}
                 </button>
                 <label className="button button-secondary file-button-inline">
-                  {importing ? `${t("buttons.importCsv")}...` : t("buttons.importCsv")}
+                  {uploadingLogo ? `${t("buttons.uploadLogo")}...` : t("buttons.uploadLogo")}
                   <input
                     type="file"
-                    accept=".csv,text/csv"
-                    disabled={importing}
+                    accept="image/*"
+                    disabled={uploadingLogo}
                     onChange={(event) => {
                       const file = event.target.files?.[0] ?? null;
-                      if (file) handleCsvImport(file);
+                      event.currentTarget.value = "";
+                      void handleTeamLogoUpload(file);
                     }}
                   />
                 </label>
-                {isAdmin ? (
-                  <label className="button button-secondary file-button-inline">
-                    {uploadingLogo ? `${t("buttons.uploadLogo")}...` : t("buttons.uploadLogo")}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingLogo}
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] ?? null;
-                        event.currentTarget.value = "";
-                        void handleTeamLogoUpload(file);
-                      }}
-                    />
-                  </label>
-                ) : null}
               </>
-            )}
+            ) : null}
           </div>
         }
       />
@@ -621,31 +663,6 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
               </div>
             </div>
           </SurfaceCard>
-
-          {canManageRoster && importResult && (
-            <SurfaceCard>
-              <SectionHeader title={t("roster.csvImportResults")} />
-              <div className="import-results">
-                <p>
-                  {t("roster.importSummary", {
-                    created: importResult.created,
-                    updated: importResult.updated,
-                    skipped: importResult.skipped,
-                    errors: importResult.errors.length,
-                  })}
-                </p>
-                {importResult.errors.length > 0 && (
-                  <ul className="error-list">
-                    {importResult.errors.map((item) => (
-                      <li key={`${item.row}-${item.message}`}>
-                        {t("common.row", { row: item.row })}: {item.message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </SurfaceCard>
-          )}
 
           <div className="roster-layout">
             <div className="roster-main">
@@ -839,6 +856,18 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
         }
         onClose={closeGameDetails}
       />
+
+      {isAdmin && (
+        <CsvImportModal
+          open={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          teams={allTeams}
+          defaultMode={importModalMode}
+          defaultRosterTeamId={Number.isNaN(teamNumericId) ? null : teamNumericId}
+          onSubmitSchedule={handleScheduleCsvImport}
+          onSubmitRoster={handleRosterCsvImport}
+        />
+      )}
 
       {canManageRoster && modalOpen && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">

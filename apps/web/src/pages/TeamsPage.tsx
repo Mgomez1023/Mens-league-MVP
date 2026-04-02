@@ -11,6 +11,7 @@ import {
   fetchTeamsPublic,
   getCachedTeams,
   resolveApiUrl,
+  updateTeam,
   uploadTeamLogo,
 } from "../api";
 import type { Team } from "../api";
@@ -52,6 +53,7 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [formLogo, setFormLogo] = useState<File | null>(null);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
   useBodyScrollLock(formOpen);
 
@@ -118,29 +120,61 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCreateTeam = async (event: React.FormEvent) => {
+  const resetFormState = () => {
+    setFormData(emptyForm);
+    setFormLogo(null);
+    setEditingTeam(null);
+    setFormError(null);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    resetFormState();
+  };
+
+  const openCreateForm = () => {
+    resetFormState();
+    setFormOpen(true);
+  };
+
+  const openEditForm = (team: Team) => {
+    setEditingTeam(team);
+    setFormData({
+      name: team.name,
+      home_field: team.home_field ?? "",
+    });
+    setFormLogo(null);
+    setFormError(null);
+    setFormOpen(true);
+  };
+
+  const handleSaveTeam = async (event: React.FormEvent) => {
     event.preventDefault();
     setFormError(null);
     setNotice(null);
 
-    if (!formData.name.trim()) {
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
       setFormError(t("teams.nameRequired"));
       return;
     }
 
     setSaving(true);
     try {
-      const created = await createTeam({
-        name: formData.name.trim(),
+      const basePayload = {
+        name: trimmedName,
         home_field: formData.home_field.trim() || null,
-      });
+      };
+      const savedTeam = editingTeam
+        ? await updateTeam(editingTeam.id, basePayload)
+        : await createTeam(basePayload);
 
-      let updatedTeam = created;
+      let updatedTeam = savedTeam;
       if (formLogo) {
         setUploading(true);
         try {
-          const result = await uploadTeamLogo(created.id, formLogo);
-          updatedTeam = { ...created, logo_url: result.logo_url };
+          const result = await uploadTeamLogo(savedTeam.id, formLogo);
+          updatedTeam = { ...savedTeam, logo_url: result.logo_url };
         } catch (err) {
           if (err instanceof AuthError) {
             onAuthError();
@@ -155,10 +189,8 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
       }
 
       setTeams((prev) => sortStandings([...prev.filter((team) => team.id !== updatedTeam.id), updatedTeam]));
-      setFormData(emptyForm);
-      setFormLogo(null);
-      setFormOpen(false);
-      setNotice(t("teams.teamAdded"));
+      closeForm();
+      setNotice(t(editingTeam ? "teams.teamUpdated" : "teams.teamAdded"));
     } catch (err) {
       if (err instanceof AuthError) {
         onAuthError();
@@ -172,7 +204,7 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
         setFormError(err.detail);
         return;
       }
-      setFormError(t("teams.addError"));
+      setFormError(t(editingTeam ? "teams.updateError" : "teams.addError"));
     } finally {
       setSaving(false);
       setUploading(false);
@@ -187,6 +219,9 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
     try {
       await deleteTeam(teamId);
       setTeams((prev) => prev.filter((team) => team.id !== teamId));
+      if (editingTeam?.id === teamId) {
+        closeForm();
+      }
       setNotice(t("teams.teamRemoved"));
     } catch (err) {
       if (err instanceof AuthError) {
@@ -204,6 +239,9 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
         try {
           await deleteTeam(teamId, { force: true });
           setTeams((prev) => prev.filter((team) => team.id !== teamId));
+          if (editingTeam?.id === teamId) {
+            closeForm();
+          }
           setNotice(t("teams.teamRemovedWithRelated"));
           return;
         } catch (inner) {
@@ -249,7 +287,13 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
             <button
               className="button button-primary button-small page-title-action-compact"
               type="button"
-              onClick={() => setFormOpen((prev) => !prev)}
+              onClick={() => {
+                if (formOpen && !editingTeam) {
+                  closeForm();
+                  return;
+                }
+                openCreateForm();
+              }}
             >
               {formOpen ? t("common.closeForm") : t("buttons.addTeam")}
             </button>
@@ -302,11 +346,11 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
                     ) : null}
                     {isAdmin && (
                       <button
-                        className="button button-danger button-small"
-                        onClick={() => handleDeleteTeam(team.id)}
-                        disabled={deletingId === team.id}
+                        className="button button-secondary button-small"
+                        type="button"
+                        onClick={() => openEditForm(team)}
                       >
-                        {deletingId === team.id ? t("common.deleteInProgress") : t("buttons.delete")}
+                        {t("buttons.edit")}
                       </button>
                     )}
                   </div>
@@ -321,22 +365,19 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <SurfaceCard className="modal-card">
             <SectionHeader
-              title={t("teams.modalTitle")}
-              description={t("teams.modalDescription")}
+              title={t(editingTeam ? "teams.editModalTitle" : "teams.modalTitle")}
+              description={t(editingTeam ? "teams.editModalDescription" : "teams.modalDescription")}
               action={
                 <button
                   className="button button-secondary button-small"
                   type="button"
-                  onClick={() => {
-                    setFormOpen(false);
-                    setFormError(null);
-                  }}
+                  onClick={closeForm}
                 >
                   {t("buttons.close")}
                 </button>
               }
             />
-            <form className="form-grid team-form-grid" onSubmit={handleCreateTeam}>
+            <form className="form-grid team-form-grid" onSubmit={handleSaveTeam}>
               <label className="field">
                 <span>{t("teams.nameLabel")}</span>
                 <input
@@ -368,16 +409,27 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
               </label>
 
               <div className="form-actions">
+                {editingTeam ? (
+                  <button
+                    className="button button-danger"
+                    type="button"
+                    onClick={() => handleDeleteTeam(editingTeam.id)}
+                    disabled={saving || uploading || deletingId === editingTeam.id}
+                  >
+                    {deletingId === editingTeam.id
+                      ? t("common.deleteInProgress")
+                      : t("buttons.delete")}
+                  </button>
+                ) : null}
                 <button className="button button-primary" type="submit" disabled={saving || uploading}>
-                  {saving || uploading ? t("common.saveInProgress") : t("teams.saveTeam")}
+                  {saving || uploading
+                    ? t("common.saveInProgress")
+                    : t(editingTeam ? "teams.updateTeam" : "teams.saveTeam")}
                 </button>
                 <button
                   className="button button-secondary"
                   type="button"
-                  onClick={() => {
-                    setFormOpen(false);
-                    setFormError(null);
-                  }}
+                  onClick={closeForm}
                 >
                   {t("buttons.cancel")}
                 </button>
