@@ -261,6 +261,13 @@ export default function DashboardLayout({
             >
               {t("nav.contact")}
             </NavLink>
+            <NavLink
+              to="/photos"
+              className={({ isActive }) => `drawer-link ${isActive ? "active" : ""}`}
+              onClick={closeDrawer}
+            >
+              {t("nav.photos")}
+            </NavLink>
           </nav>
         </div>
 

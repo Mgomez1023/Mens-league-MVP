@@ -39,7 +39,6 @@ export function FacebookPageEmbed({
     <section className={cx("facebook-page-embed", `facebook-page-embed-${variant}`)}>
       {title ? (
         <div className="facebook-page-embed-heading">
-          <p className="facebook-page-embed-kicker">Facebook</p>
           <h2>{title}</h2>
         </div>
       ) : null}

@@ -397,6 +397,10 @@ export default function HomePage() {
                   <strong>{t("home.contactTitle")}</strong>
                   <span>{t("home.contactDescription")}</span>
                 </Link>
+                <Link className="quick-link-card" to="/photos">
+                  <strong>{t("home.photosTitle")}</strong>
+                  <span>{t("home.photosDescription")}</span>
+                </Link>
               </div>
             </SurfaceCard>
 

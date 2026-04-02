@@ -10,6 +10,7 @@ import PostsPage from "./pages/PostsPage";
 import StandingsPage from "./pages/StandingsPage";
 import RulesPage from "./pages/RulesPage";
 import ContactPage from "./pages/ContactPage";
+import PhotosPage from "./pages/PhotosPage";
 import { clearToken, getRoleClaim, getTokenClaims, isAdminClaim, onUnauthorized, getToken } from "./api";
 import type { UserRole } from "./api";
 
@@ -93,6 +94,15 @@ export default function App() {
         <Route path="standings" element={<StandingsPage />} />
         <Route path="rules" element={<RulesPage />} />
         <Route path="contact" element={<ContactPage />} />
+        <Route
+          path="photos"
+          element={
+            <PhotosPage
+              isAdmin={auth.isAdmin}
+              onAuthError={handleAuthError}
+            />
+          }
+        />
         <Route
           path="teams"
           element={

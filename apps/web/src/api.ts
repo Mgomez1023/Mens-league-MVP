@@ -106,6 +106,14 @@ export type Post = {
   image_url?: string | null;
 };
 
+export type Photo = {
+  id: number;
+  image_url: string;
+  alt: string;
+  caption?: string | null;
+  created_at: string;
+};
+
 export class AuthError extends Error {
   status: number;
 
@@ -462,6 +470,34 @@ export async function createPost(content: string, image?: File | null) {
 
 export async function deletePost(postId: number) {
   await authenticatedFetch(`${API_BASE}/posts/${postId}`, {
+    method: "DELETE",
+  });
+  return { ok: true };
+}
+
+export async function fetchPhotos() {
+  const res = await fetch(`${API_BASE}/photos`);
+  if (!res.ok) {
+    throw new ApiError("Request failed", res.status);
+  }
+  return res.json() as Promise<Photo[]>;
+}
+
+export async function uploadPhoto(image: File, caption?: string | null) {
+  const formData = new FormData();
+  formData.append("image", image);
+  if (caption?.trim()) {
+    formData.append("caption", caption.trim());
+  }
+  const res = await authenticatedFetch(`${API_BASE}/photos`, {
+    method: "POST",
+    body: formData,
+  });
+  return res.json() as Promise<Photo>;
+}
+
+export async function deletePhoto(photoId: number) {
+  await authenticatedFetch(`${API_BASE}/photos/${photoId}`, {
     method: "DELETE",
   });
   return { ok: true };

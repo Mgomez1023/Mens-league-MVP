@@ -46,6 +46,7 @@ import {
   formatFullGameDate,
   formatTime,
   getCurrentScheduleGroupKey,
+  getDateOnlyKey,
   getGameTeamData,
   getGameScore,
   getGameShortLocation,
@@ -122,6 +123,7 @@ export default function GamesPage({
   const [scoreError, setScoreError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     window: "all",
+    week: "all",
     teamId: "all",
     status: "all",
   });
@@ -238,6 +240,7 @@ export default function GamesPage({
 
   const teamMap = useMemo(() => buildTeamMap(teams), [teams]);
   const isManager = authed && role === "manager" && managerTeamId != null;
+  const availableScheduleGroups = useMemo(() => groupGamesByDate(games), [games]);
 
   const filteredGames = useMemo(() => {
     const today = new Date();
@@ -255,6 +258,10 @@ export default function GamesPage({
       }
 
       if (filters.status !== "all" && normalizedStatus !== filters.status) {
+        return false;
+      }
+
+      if (filters.week !== "all" && getDateOnlyKey(game.date) !== filters.week) {
         return false;
       }
 
@@ -994,6 +1001,20 @@ export default function GamesPage({
                   <option value="next7">{t("games.filters.next7")}</option>
                   <option value="upcoming">{t("games.filters.upcoming")}</option>
                   <option value="final">{t("games.filters.finalOnly")}</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>{t("common.week")}</span>
+                <select
+                  value={filters.week}
+                  onChange={(event) => handleFilterChange("week", event.target.value)}
+                >
+                  <option value="all">{t("games.filters.allWeeks")}</option>
+                  {availableScheduleGroups.map((group) => (
+                    <option key={group.key} value={group.key}>
+                      {group.label}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="field">
