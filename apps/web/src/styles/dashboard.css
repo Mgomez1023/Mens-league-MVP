@@ -51,10 +51,28 @@ body {
   flex-direction: column;
 }
 
-.app-header {
+.app-topbar {
   position: sticky;
   top: 0;
   z-index: 40;
+  transition: transform 0.24s ease, opacity 0.24s ease;
+  will-change: transform;
+}
+
+.app-topbar-visible,
+.app-topbar-pinned {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.app-topbar-hidden {
+  transform: translateY(calc(-100% - 0.5rem));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-header {
   background: linear-gradient(180deg, rgba(170, 20, 20, 0.98) 0%, rgba(190, 25, 25, 0.98) 45%, rgba(140, 10, 10, 0.98) 100%);
   box-shadow: var(--shadow-header);
   backdrop-filter: blur(12px);
@@ -3310,6 +3328,12 @@ body {
 
 .team-summary-card {
   align-items: center;
+  color: #f7fbff;
+}
+
+.team-summary-card h2,
+.team-summary-card p {
+  color: #f7fbff;
 }
 
 .team-summary-stats {
@@ -3358,7 +3382,7 @@ body {
 
 .summary-stat span {
   display: block;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(247, 251, 255, 0.92);
   font-size: 0.88rem;
   margin-bottom: var(--space-2);
 }
@@ -3366,6 +3390,7 @@ body {
 .summary-stat strong {
   font-family: var(--font-display);
   font-size: 1.85rem;
+  color: #f7fbff;
 }
 
 .import-results p,
@@ -4680,6 +4705,28 @@ body {
   flex: 1;
 }
 
+.header-actions-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+}
+
+.header-language-toggle {
+  width: min(6.25rem, 100%);
+}
+
+.header-language-toggle .language-toggle {
+  width: 100%;
+  padding: 0.15rem;
+}
+
+.header-language-toggle .language-toggle-button {
+  min-width: 0;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.72rem;
+}
+
 .app-session-bar {
   border-top-color: rgba(99, 173, 221, 0.18);
   border-bottom-color: rgba(99, 173, 221, 0.16);
@@ -5481,6 +5528,10 @@ body {
 
 @media (max-width: 860px) {
   .header-socials {
+    display: none;
+  }
+
+  .header-actions-stack {
     display: none;
   }
 

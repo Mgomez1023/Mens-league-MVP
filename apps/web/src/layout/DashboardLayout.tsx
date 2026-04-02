@@ -31,6 +31,7 @@ export default function DashboardLayout({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
   const adminPanelOpen = authed && isAdmin && adminMenuOpen;
   const publicLinks: Array<{ to: string; label: string; end?: boolean }> = [
     { to: "/games", label: t("nav.games") },
@@ -85,89 +86,130 @@ export default function DashboardLayout({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (open || adminPanelOpen) {
+      setHeaderVisible(true);
+      return;
+    }
+
+    let lastScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDelta = currentScrollY - lastScrollY;
+
+      if (Math.abs(scrollDelta) < 8) {
+        return;
+      }
+
+      if (currentScrollY < 72) {
+        setHeaderVisible(true);
+      } else if (scrollDelta > 0) {
+        setHeaderVisible(false);
+      } else {
+        setHeaderVisible(true);
+      }
+
+      lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [adminPanelOpen, open]);
+
   return (
     <div className={`app-shell ${open ? "drawer-open" : ""}`}>
-      <header className="app-header">
-        <div className="app-header-inner">
-          <div className="app-brand-row">
-            <NavLink to="/" className="app-brand" onClick={closePanels}>
-              <img
-                className="app-brand-logo"
-                src={leagueLogo}
-                alt={t("common.leagueLogoAlt")}
-              />
-              <div className="app-brand-copy">
-                <span className="app-brand-title">{leagueProfile.name}</span>
-              </div>
-            </NavLink>
-          </div>
-          
-
-          <nav className="app-nav app-nav-desktop" aria-label={t("aria.primaryNavigation")}>
-            {publicLinks.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                end={link.end}
-                className={({ isActive }) => `app-nav-link ${isActive ? "active" : ""}`}
-              >
-                {link.label}
+      <div
+        className={`app-topbar ${headerVisible ? "app-topbar-visible" : "app-topbar-hidden"} ${
+          open || adminPanelOpen ? "app-topbar-pinned" : ""
+        }`}
+      >
+        <header className="app-header">
+          <div className="app-header-inner">
+            <div className="app-brand-row">
+              <NavLink to="/" className="app-brand" onClick={closePanels}>
+                <img
+                  className="app-brand-logo"
+                  src={leagueLogo}
+                  alt={t("common.leagueLogoAlt")}
+                />
+                <div className="app-brand-copy">
+                  <span className="app-brand-title">{leagueProfile.name}</span>
+                </div>
               </NavLink>
-            ))}
-          </nav>
-
-          <div className="app-header-actions">
-            <div className="header-socials" aria-label={t("aria.leagueSocialMedia")}>
-              {leagueProfile.socials.map((social) => (
-                <a
-                  key={social.label}
-                  className="social-button social-button-header"
-                  href={social.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={social.label}
-                  title={social.label}
-                >
-                  <SocialIcon icon={social.icon} />
-                </a>
-              ))}
             </div>
-            <button
-              className="menu-toggle"
-              type="button"
-              onClick={() => {
-                closeAdminMenu();
-                setOpen((prev) => !prev);
-              }}
-              aria-label={t("aria.toggleNavigation")}
-            >
-              {t("nav.menu")}
-            </button>
-          </div>
-        </div>
-      </header>
 
-      {authed && (
-        <div className="app-session-bar desktop-only">
-          <div className="app-session-bar-inner">
-            {signedInLabel ? <span className="session-indicator">{signedInLabel}</span> : null}
-            {isAdmin && (
+            <nav className="app-nav app-nav-desktop" aria-label={t("aria.primaryNavigation")}>
+              {publicLinks.map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  end={link.end}
+                  className={({ isActive }) => `app-nav-link ${isActive ? "active" : ""}`}
+                >
+                  {link.label}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="app-header-actions">
+              <div className="header-actions-stack">
+                <div className="header-language-toggle desktop-only">
+                  <LanguageToggle />
+                </div>
+                <div className="header-socials" aria-label={t("aria.leagueSocialMedia")}>
+                  {leagueProfile.socials.map((social) => (
+                    <a
+                      key={social.label}
+                      className="social-button social-button-header"
+                      href={social.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={social.label}
+                      title={social.label}
+                    >
+                      <SocialIcon icon={social.icon} />
+                    </a>
+                  ))}
+                </div>
+              </div>
               <button
-                className="admin-menu-trigger"
+                className="menu-toggle"
                 type="button"
-                aria-expanded={adminPanelOpen}
-                aria-controls="admin-panel"
-                onClick={() => setAdminMenuOpen((prev) => !prev)}
+                onClick={() => {
+                  closeAdminMenu();
+                  setOpen((prev) => !prev);
+                }}
+                aria-label={t("aria.toggleNavigation")}
               >
-                {t("admin.title")}
+                {t("nav.menu")}
               </button>
-            )}
-            <button className="button button-secondary app-session-logout" type="button" onClick={onLogout}>
-              {t("auth.logout")}
-            </button>
+            </div>
           </div>
-        </div>
-      )}
+        </header>
+
+        {authed && (
+          <div className="app-session-bar desktop-only">
+            <div className="app-session-bar-inner">
+              {signedInLabel ? <span className="session-indicator">{signedInLabel}</span> : null}
+              {isAdmin && (
+                <button
+                  className="admin-menu-trigger"
+                  type="button"
+                  aria-expanded={adminPanelOpen}
+                  aria-controls="admin-panel"
+                  onClick={() => setAdminMenuOpen((prev) => !prev)}
+                >
+                  {t("admin.title")}
+                </button>
+              )}
+              <button className="button button-secondary app-session-logout" type="button" onClick={onLogout}>
+                {t("auth.logout")}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className={`admin-panel-backdrop ${adminPanelOpen ? "open" : ""}`} onClick={closeAdminMenu} />
 
