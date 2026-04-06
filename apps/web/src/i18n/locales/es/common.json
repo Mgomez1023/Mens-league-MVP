@@ -315,11 +315,10 @@
   "rules": {
     "eyebrow": "Reglamento de la liga",
     "title": "Reglas de la liga",
-    "description": "Esta página usa un borrador estructurado para que el reglamento oficial se pueda reemplazar después sin rehacer el diseño.",
-    "lastUpdatedLabel": "Última actualización",
-    "featuredLabel": "Regla importante",
-    "contentsTitle": "Tabla de contenido",
-    "contentsDescription": "Salta directamente a una sección."
+    "description": "El reglamento oficial de la liga está integrado abajo.",
+    "documentLabel": "Documento de reglas de la liga",
+    "fallbackMessage": "Tu navegador no pudo mostrar el reglamento dentro de la página.",
+    "openDocument": "Abrir documento"
   },
   "teams": {
     "eyebrow": "Equipos y rosters",

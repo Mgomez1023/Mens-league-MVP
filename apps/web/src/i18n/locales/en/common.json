@@ -315,11 +315,10 @@
   "rules": {
     "eyebrow": "League handbook",
     "title": "League Rules",
-    "description": "This page uses a structured placeholder draft so the official league rules can be dropped in later without rebuilding the layout.",
-    "lastUpdatedLabel": "Last updated",
-    "featuredLabel": "Important rule",
-    "contentsTitle": "Table of contents",
-    "contentsDescription": "Jump to a section below."
+    "description": "The official league bylaws are embedded below.",
+    "documentLabel": "League rules document",
+    "fallbackMessage": "Your browser could not display the rules document inline.",
+    "openDocument": "Open document"
   },
   "teams": {
     "eyebrow": "Teams and rosters",
