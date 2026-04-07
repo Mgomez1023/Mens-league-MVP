@@ -412,6 +412,10 @@
     "groupCount_one": "{{count}} game",
     "groupCount_other": "{{count}} games",
     "detailsLink": "Details",
+    "specialEvents": {
+      "indianapolisTournament": "Indianapolis Tournament",
+      "allStarTournament": "All Star Tournament"
+    },
     "viewDetailsFor": "View details for {{awayTeamName}} versus {{homeTeamName}}",
     "vs": "VS.",
     "scheduleMatchup": "Scheduled matchup",

@@ -412,6 +412,10 @@
     "groupCount_one": "{{count}} juego",
     "groupCount_other": "{{count}} juegos",
     "detailsLink": "Detalles",
+    "specialEvents": {
+      "indianapolisTournament": "Torneo de Indianapolis",
+      "allStarTournament": "Torneo de Estrellas"
+    },
     "viewDetailsFor": "Ver detalles de {{awayTeamName}} contra {{homeTeamName}}",
     "vs": "VS.",
     "scheduleMatchup": "Juego programado",

@@ -54,6 +54,7 @@ import {
   groupGamesByDate,
   isFinalGame,
   parseDateOnly,
+  type GameDateGroup,
 } from "../utils/league";
 
 type GamesPageProps = {
@@ -85,6 +86,28 @@ const emptyScoreForm = {
   away_score: "",
   home_score: "",
 };
+
+const SPECIAL_SCHEDULE_EVENTS = [
+  {
+    date: "2026-05-25",
+    labelKey: "games.specialEvents.indianapolisTournament",
+    week: 7,
+  },
+  {
+    date: "2026-07-05",
+    labelKey: "games.specialEvents.allStarTournament",
+    week: 12,
+  },
+] as const;
+
+type ScheduleDisplayGroup =
+  | (GameDateGroup & { kind: "games" })
+  | {
+      kind: "event";
+      key: string;
+      title: string;
+      eventName: string;
+    };
 
 export default function GamesPage({
   authed,
@@ -283,6 +306,59 @@ export default function GamesPage({
   }, [filters, games]);
 
   const groupedGames = useMemo(() => groupGamesByDate(filteredGames, games), [filteredGames, games]);
+  const displayedScheduleGroups = useMemo<ScheduleDisplayGroup[]>(() => {
+    const gameGroups = groupedGames.map((group) => ({ ...group, kind: "games" as const }));
+    const shouldShowEvents = filters.teamId === "all" && filters.status === "all";
+
+    if (!shouldShowEvents) {
+      return gameGroups;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const inSevenDays = new Date(today);
+    inSevenDays.setDate(inSevenDays.getDate() + 7);
+
+    const eventGroups = SPECIAL_SCHEDULE_EVENTS.flatMap((event) => {
+      const eventDate = parseDateOnly(event.date);
+      if (!eventDate) return [];
+
+      if (filters.week !== "all" && filters.week !== event.date) {
+        return [];
+      }
+
+      if (filters.window === "today" && eventDate.getTime() !== today.getTime()) {
+        return [];
+      }
+
+      if (filters.window === "next7" && (eventDate < today || eventDate > inSevenDays)) {
+        return [];
+      }
+
+      if (filters.window === "upcoming" && eventDate < today) {
+        return [];
+      }
+
+      if (filters.window === "final") {
+        return [];
+      }
+
+      return [
+        {
+          kind: "event" as const,
+          key: event.date,
+          title: formatFullGameDate({ date: event.date }),
+          eventName: t(event.labelKey),
+        },
+      ];
+    });
+
+    return [...gameGroups, ...eventGroups].sort((a, b) => {
+      const timeA = parseDateOnly(a.key)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const timeB = parseDateOnly(b.key)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return timeA - timeB;
+    });
+  }, [filters.status, filters.teamId, filters.week, filters.window, groupedGames, t]);
   const currentScheduleGroupKey = useMemo(
     () => getCurrentScheduleGroupKey(groupedGames),
     [groupedGames],
@@ -1059,7 +1135,7 @@ export default function GamesPage({
 
       {!loading && !error && !endpointMissing && (
         <>
-          {groupedGames.length === 0 ? (
+          {displayedScheduleGroups.length === 0 ? (
             <SurfaceCard>
               <EmptyState
                 title={t("games.emptyTitle")}
@@ -1068,7 +1144,7 @@ export default function GamesPage({
             </SurfaceCard>
           ) : (
             <div className="schedule-groups">
-              {groupedGames.map((group) => (
+              {displayedScheduleGroups.map((group) => (
                 <div
                   key={group.key}
                   ref={(node) => {
@@ -1078,146 +1154,158 @@ export default function GamesPage({
                 >
                   <SurfaceCard>
                     <SectionHeader
-                      title={group.label}
-                      description={t("games.groupCount", { count: group.games.length })}
+                      title={group.kind === "event" ? group.title : group.label}
+                      description={
+                        group.kind === "event"
+                          ? undefined
+                          : t("games.groupCount", { count: group.games.length })
+                      }
                     />
-                    <div className="schedule-list schedule-list-desktop">
-                      {group.games.map((game) => {
-                        const {
-                          awayTeamName,
-                          awayTeamLogoSrc,
-                          homeTeamName,
-                          homeTeamLogoSrc,
-                        } = getGameDisplayData(game);
+                    {group.kind === "event" ? (
+                      <div className="schedule-event-bar" role="note" aria-label={group.eventName}>
+                        <p className="schedule-event-bar-label">{group.eventName}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="schedule-list schedule-list-desktop">
+                          {group.games.map((game) => {
+                            const {
+                              awayTeamName,
+                              awayTeamLogoSrc,
+                              homeTeamName,
+                              homeTeamLogoSrc,
+                            } = getGameDisplayData(game);
 
-                        return (
-                          <div key={game.id} className="schedule-game-card-shell">
-                            <PublicGameCard
-                              className="schedule-game-card"
-                              game={game}
-                              awayTeamName={awayTeamName}
-                              awayTeamLogoSrc={awayTeamLogoSrc}
-                              homeTeamName={homeTeamName}
-                              homeTeamLogoSrc={homeTeamLogoSrc}
-                              layout="schedule"
-                              avatarSize="xl"
-                              footer={
-                                <div className="table-actions">
-                                  <button
-                                    className="button button-secondary button-small"
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleOpenGameDetails(game.id);
-                                    }}
-                                  >
-                                    {t("games.detailsLink")}
-                                  </button>
-                                </div>
-                              }
-                            />
-                            <button
-                              className="schedule-card-overlay"
-                              type="button"
-                              aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
-                              onClick={() => handleOpenGameDetails(game.id)}
-                            >
-                              <span className="visually-hidden">{t("buttons.viewDetails")}</span>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="schedule-mobile-list">
-                      {group.games.map((game) => {
-                        const {
-                          awayTeamName,
-                          awayTeamLogoSrc,
-                          homeTeamName,
-                          homeTeamLogoSrc,
-                        } = getGameDisplayData(game);
-                        const status = getGameStatusMeta(game.status);
-                        const finalGame = isFinalGame(game.status);
-                        const score = getGameScore(game);
-                        const location = getGameShortLocation(game);
-
-                        return (
-                          <div key={game.id} className="schedule-mobile-row-shell">
-                            <article className="schedule-mobile-row">
-                              <div className="schedule-mobile-row-topline">
-                                <p className="schedule-mobile-row-meta">
-                                  <span>{formatTime(game.time)}</span>
-                                  <span aria-hidden="true">•</span>
-                                  <span>{location}</span>
-                                </p>
-                                <StatusChip tone={status.tone}>{status.label}</StatusChip>
-                              </div>
-
-                              <div className="schedule-mobile-row-body">
-                                <div className="schedule-mobile-row-team-list">
-                                  <div className="schedule-mobile-row-team">
-                                    <div className="schedule-mobile-row-team-copy">
-                                      <TeamAvatar
-                                        name={homeTeamName}
-                                        src={homeTeamLogoSrc}
-                                        size="sm"
-                                      />
-                                      <span className="schedule-mobile-row-team-name">{homeTeamName}</span>
+                            return (
+                              <div key={game.id} className="schedule-game-card-shell">
+                                <PublicGameCard
+                                  className="schedule-game-card"
+                                  game={game}
+                                  awayTeamName={awayTeamName}
+                                  awayTeamLogoSrc={awayTeamLogoSrc}
+                                  homeTeamName={homeTeamName}
+                                  homeTeamLogoSrc={homeTeamLogoSrc}
+                                  layout="schedule"
+                                  avatarSize="xl"
+                                  footer={
+                                    <div className="table-actions">
+                                      <button
+                                        className="button button-secondary button-small"
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          handleOpenGameDetails(game.id);
+                                        }}
+                                      >
+                                        {t("games.detailsLink")}
+                                      </button>
                                     </div>
-                                    {finalGame && score ? (
-                                      <span className="schedule-mobile-row-team-score">{score.home}</span>
-                                    ) : null}
+                                  }
+                                />
+                                <button
+                                  className="schedule-card-overlay"
+                                  type="button"
+                                  aria-label={t("games.viewDetailsFor", { awayTeamName, homeTeamName })}
+                                  onClick={() => handleOpenGameDetails(game.id)}
+                                >
+                                  <span className="visually-hidden">{t("buttons.viewDetails")}</span>
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="schedule-mobile-list">
+                          {group.games.map((game) => {
+                            const {
+                              awayTeamName,
+                              awayTeamLogoSrc,
+                              homeTeamName,
+                              homeTeamLogoSrc,
+                            } = getGameDisplayData(game);
+                            const status = getGameStatusMeta(game.status);
+                            const finalGame = isFinalGame(game.status);
+                            const score = getGameScore(game);
+                            const location = getGameShortLocation(game);
+
+                            return (
+                              <div key={game.id} className="schedule-mobile-row-shell">
+                                <article className="schedule-mobile-row">
+                                  <div className="schedule-mobile-row-topline">
+                                    <p className="schedule-mobile-row-meta">
+                                      <span>{formatTime(game.time)}</span>
+                                      <span aria-hidden="true">•</span>
+                                      <span>{location}</span>
+                                    </p>
+                                    <StatusChip tone={status.tone}>{status.label}</StatusChip>
                                   </div>
 
-                                  <div className="schedule-mobile-row-team">
-                                    <div className="schedule-mobile-row-team-copy">
-                                      <TeamAvatar
-                                        name={awayTeamName}
-                                        src={awayTeamLogoSrc}
-                                        size="sm"
-                                      />
-                                      <span className="schedule-mobile-row-team-name">{awayTeamName}</span>
+                                  <div className="schedule-mobile-row-body">
+                                    <div className="schedule-mobile-row-team-list">
+                                      <div className="schedule-mobile-row-team">
+                                        <div className="schedule-mobile-row-team-copy">
+                                          <TeamAvatar
+                                            name={homeTeamName}
+                                            src={homeTeamLogoSrc}
+                                            size="sm"
+                                          />
+                                          <span className="schedule-mobile-row-team-name">{homeTeamName}</span>
+                                        </div>
+                                        {finalGame && score ? (
+                                          <span className="schedule-mobile-row-team-score">{score.home}</span>
+                                        ) : null}
+                                      </div>
+
+                                      <div className="schedule-mobile-row-team">
+                                        <div className="schedule-mobile-row-team-copy">
+                                          <TeamAvatar
+                                            name={awayTeamName}
+                                            src={awayTeamLogoSrc}
+                                            size="sm"
+                                          />
+                                          <span className="schedule-mobile-row-team-name">{awayTeamName}</span>
+                                        </div>
+                                        {finalGame && score ? (
+                                          <span className="schedule-mobile-row-team-score">{score.away}</span>
+                                        ) : null}
+                                      </div>
                                     </div>
-                                    {finalGame && score ? (
-                                      <span className="schedule-mobile-row-team-score">{score.away}</span>
-                                    ) : null}
+
+                                    <div className="schedule-mobile-row-summary" />
                                   </div>
-                                </div>
 
-                                <div className="schedule-mobile-row-summary" />
+                                  <div className="schedule-mobile-row-footer">
+                                    <div className="schedule-mobile-admin-actions">
+                                      <button
+                                        className="button button-secondary button-small"
+                                        type="button"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          handleOpenGameDetails(game.id);
+                                        }}
+                                      >
+                                        {t("games.detailsLink")}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </article>
+                                <button
+                                  className="schedule-mobile-row-overlay"
+                                  type="button"
+                                  aria-label={t("games.viewDetailsFor", {
+                                    awayTeamName: homeTeamName,
+                                    homeTeamName: awayTeamName,
+                                  })}
+                                  onClick={() => handleOpenGameDetails(game.id)}
+                                >
+                                  <span className="visually-hidden">{t("buttons.viewDetails")}</span>
+                                </button>
                               </div>
-
-                              <div className="schedule-mobile-row-footer">
-                                <div className="schedule-mobile-admin-actions">
-                                  <button
-                                    className="button button-secondary button-small"
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleOpenGameDetails(game.id);
-                                    }}
-                                  >
-                                    {t("games.detailsLink")}
-                                  </button>
-                                </div>
-                              </div>
-                            </article>
-                            <button
-                              className="schedule-mobile-row-overlay"
-                              type="button"
-                              aria-label={t("games.viewDetailsFor", {
-                                awayTeamName: homeTeamName,
-                                homeTeamName: awayTeamName,
-                              })}
-                              onClick={() => handleOpenGameDetails(game.id)}
-                            >
-                              <span className="visually-hidden">{t("buttons.viewDetails")}</span>
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </SurfaceCard>
                 </div>
               ))}
