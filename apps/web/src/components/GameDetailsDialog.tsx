@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import type { Game } from "../api";
 import {
   formatFullGameDate,
@@ -16,6 +17,7 @@ import {
 import { StatusChip, SurfaceCard, TeamAvatar } from "./ui";
 
 type TeamSummary = {
+  id?: number | null;
   name: string;
   logoSrc?: string | null;
 };
@@ -96,6 +98,32 @@ export function GameDetailsDialog({
         ? t("games.matchupComplete")
         : t("games.scheduleMatchup");
 
+  const renderTeamSummary = (team: TeamSummary, sideLabel: string) => {
+    const content = (
+      <>
+        <TeamAvatar name={team.name} src={team.logoSrc} size="lg" />
+        <div className="game-details-team-copy">
+          <p className="game-details-team-label">{sideLabel}</p>
+          <p className="game-details-team-name">{team.name}</p>
+        </div>
+      </>
+    );
+
+    if (team.id == null) {
+      return <>{content}</>;
+    }
+
+    return (
+      <Link
+        className="game-details-team-link"
+        to={`/teams/${team.id}/roster`}
+        onClick={onClose}
+      >
+        {content}
+      </Link>
+    );
+  };
+
   return (
     <div
       className="modal-backdrop game-details-backdrop"
@@ -138,11 +166,7 @@ export function GameDetailsDialog({
 
           <div className="game-details-matchup">
             <div className="game-details-team game-details-team-home">
-              <TeamAvatar name={homeTeam.name} src={homeTeam.logoSrc} size="lg" />
-              <div className="game-details-team-copy">
-                <p className="game-details-team-label">{t("games.home")}</p>
-                <p className="game-details-team-name">{homeTeam.name}</p>
-              </div>
+              {renderTeamSummary(homeTeam, t("games.home"))}
               {isFinal && score && <p className="game-details-team-score">{score.home}</p>}
             </div>
 
@@ -166,11 +190,7 @@ export function GameDetailsDialog({
             </div>
 
             <div className="game-details-team game-details-team-away">
-              <TeamAvatar name={awayTeam.name} src={awayTeam.logoSrc} size="lg" />
-              <div className="game-details-team-copy">
-                <p className="game-details-team-label">{t("games.away")}</p>
-                <p className="game-details-team-name">{awayTeam.name}</p>
-              </div>
+              {renderTeamSummary(awayTeam, t("games.away"))}
               {isFinal && score && <p className="game-details-team-score">{score.away}</p>}
             </div>
           </div>

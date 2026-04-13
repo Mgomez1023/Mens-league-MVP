@@ -837,6 +837,7 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
         awayTeam={
           selectedGame
             ? {
+                id: getGameTeamData(selectedGame, "away", teamMap).team?.id ?? null,
                 name: getGameTeamData(selectedGame, "away", teamMap).name,
                 logoSrc: getGameTeamData(selectedGame, "away", teamMap).team?.logo_url
                   ? resolveApiUrl(getGameTeamData(selectedGame, "away", teamMap).team?.logo_url as string)
@@ -847,6 +848,7 @@ export default function RosterPage({ authed, isAdmin, managerTeamId, onAuthError
         homeTeam={
           selectedGame
             ? {
+                id: getGameTeamData(selectedGame, "home", teamMap).team?.id ?? null,
                 name: getGameTeamData(selectedGame, "home", teamMap).name,
                 logoSrc: getGameTeamData(selectedGame, "home", teamMap).team?.logo_url
                   ? resolveApiUrl(getGameTeamData(selectedGame, "home", teamMap).team?.logo_url as string)

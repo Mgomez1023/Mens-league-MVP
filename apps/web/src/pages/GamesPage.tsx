@@ -452,8 +452,10 @@ export default function GamesPage({
     const home = getGameTeamData(game, "home", teamMap);
 
     return {
+      awayTeamId: away.team?.id ?? null,
       awayTeamName: away.name,
       awayTeamLogoSrc: away.team?.logo_url ? resolveApiUrl(away.team.logo_url) : null,
+      homeTeamId: home.team?.id ?? null,
       homeTeamName: home.name,
       homeTeamLogoSrc: home.team?.logo_url ? resolveApiUrl(home.team.logo_url) : null,
     };
@@ -1809,6 +1811,7 @@ export default function GamesPage({
         awayTeam={
           selectedGame && selectedGameDisplayData
             ? {
+                id: selectedGameDisplayData.awayTeamId,
                 name: selectedGameDisplayData.awayTeamName,
                 logoSrc: selectedGameDisplayData.awayTeamLogoSrc,
               }
@@ -1817,6 +1820,7 @@ export default function GamesPage({
         homeTeam={
           selectedGame && selectedGameDisplayData
             ? {
+                id: selectedGameDisplayData.homeTeamId,
                 name: selectedGameDisplayData.homeTeamName,
                 logoSrc: selectedGameDisplayData.homeTeamLogoSrc,
               }

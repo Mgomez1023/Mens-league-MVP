@@ -414,6 +414,7 @@ export default function HomePage() {
         awayTeam={
           selectedGame && selectedAwayTeam
             ? {
+                id: selectedAwayTeam.team?.id ?? null,
                 name: selectedAwayTeam.name,
                 logoSrc: selectedAwayTeam.team?.logo_url
                   ? resolveApiUrl(selectedAwayTeam.team.logo_url)
@@ -424,6 +425,7 @@ export default function HomePage() {
         homeTeam={
           selectedGame && selectedHomeTeam
             ? {
+                id: selectedHomeTeam.team?.id ?? null,
                 name: selectedHomeTeam.name,
                 logoSrc: selectedHomeTeam.team?.logo_url
                   ? resolveApiUrl(selectedHomeTeam.team.logo_url)

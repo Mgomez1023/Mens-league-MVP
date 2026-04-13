@@ -3821,6 +3821,26 @@ body {
   text-align: center;
 }
 
+.game-details-team-link {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  color: inherit;
+  text-decoration: none;
+  border-radius: 20px;
+  outline: none;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.game-details-team-link:hover,
+.game-details-team-link:focus-visible {
+  transform: translateY(-2px);
+}
+
 .game-details-center {
   display: flex;
   min-width: 0;
@@ -3847,6 +3867,18 @@ body {
   max-width: 12ch;
   font-size: 1.05rem;
   text-wrap: balance;
+}
+
+.game-details-team-link .game-details-team-name {
+  text-decoration: underline;
+  text-decoration-color: rgba(24, 33, 42, 0.28);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.16em;
+}
+
+.game-details-team-link:hover .game-details-team-name,
+.game-details-team-link:focus-visible .game-details-team-name {
+  text-decoration-color: currentColor;
 }
 
 .game-details-team-score {

@@ -93,7 +93,6 @@ export function PublicGameCard({
                 <p className="public-game-card-team-role">{t("games.home")}</p>
                 <p className="public-game-card-team-name">{homeTeamName}</p>
               </div>
-              {isFinal && <p className="public-game-card-team-score">{game.home_score ?? "-"}</p>}
             </div>
 
             <div
@@ -124,7 +123,6 @@ export function PublicGameCard({
                 <p className="public-game-card-team-role">{t("games.away")}</p>
                 <p className="public-game-card-team-name">{awayTeamName}</p>
               </div>
-              {isFinal && <p className="public-game-card-team-score">{game.away_score ?? "-"}</p>}
             </div>
           </div>
 
