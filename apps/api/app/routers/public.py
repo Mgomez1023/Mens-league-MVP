@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session, aliased
 from ..deps import get_current_admin, get_current_user, get_db, require_team_access
 from ..config import settings
 from ..models import PlayerAppearance, Team, Game, Player, Post, Photo, Season, User
-from ..schemas import PlayerAppearanceSummaryOut, PhotoOut, PostOut
-from ..standings import compute_team_records
+from ..schemas import PlayerAppearanceSummaryOut, PhotoOut, PostOut, TeamOut
+from ..standings import build_standings_rank_map, compute_team_standings
 from ..storage import (
     photo_image_path,
     photo_image_url,
@@ -28,13 +28,19 @@ from ..storage import (
 router = APIRouter(tags=["public"])
 
 
-def serialize_team(team: Team, record: dict[str, int]):
+def serialize_team(team: Team, record: dict[str, int | float], rank: int):
     return {
         "id": team.id,
         "name": team.name,
         "home_field": team.home_field,
+        "rank": rank,
+        "games_played": record.get("games_played", 0),
         "wins": record.get("wins", 0),
         "losses": record.get("losses", 0),
+        "winning_percentage": record.get("winning_percentage", 0),
+        "runs_for": record.get("runs_for", 0),
+        "runs_against": record.get("runs_against", 0),
+        "run_differential": record.get("run_differential", 0),
         "logo_url": team_logo_url(
             team.id,
             has_db_logo=team.logo_image is not None,
@@ -175,11 +181,15 @@ def build_player_appearance_summary(player_id: int, db: Session):
     }
 
 
-@router.get("/teams")
+@router.get("/teams", response_model=list[TeamOut])
 def list_teams(db: Session = Depends(get_db)):
     teams = db.query(Team).filter(Team.is_visible.is_(True)).order_by(Team.name.asc()).all()
-    records = compute_team_records(db, [team.id for team in teams])
-    return [serialize_team(team, records.get(team.id, {})) for team in teams]
+    records = compute_team_standings(db, [team.id for team in teams])
+    rank_by_team_id = build_standings_rank_map(teams, records)
+    return [
+        serialize_team(team, records.get(team.id, {}), rank_by_team_id.get(team.id, index + 1))
+        for index, team in enumerate(teams)
+    ]
 
 
 @router.get("/teams/{team_id}/logo")

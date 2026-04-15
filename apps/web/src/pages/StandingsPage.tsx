@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchTeamsPublic, resolveApiUrl } from "../api";
+import { fetchGamesPublic, fetchTeamsPublic, resolveApiUrl } from "../api";
 import type { Team } from "../api";
 import {
   EmptyState,
@@ -12,7 +12,7 @@ import {
   SurfaceCard,
   TeamAvatar,
 } from "../components/ui";
-import { formatWinningPercentage, sortStandings } from "../utils/league";
+import { formatWinningPercentage, resolveStandings } from "../utils/league";
 
 export default function StandingsPage() {
   const { t } = useTranslation();
@@ -28,9 +28,12 @@ export default function StandingsPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchTeamsPublic();
+        const [teamData, gameData] = await Promise.all([
+          fetchTeamsPublic(),
+          fetchGamesPublic(),
+        ]);
         if (!active) return;
-        setTeams(sortStandings(data));
+        setTeams(resolveStandings(teamData, gameData));
       } catch {
         if (!active) return;
         setError(t("standings.loadError"));
@@ -84,8 +87,8 @@ export default function StandingsPage() {
                   <table className="league-table standings-table standings-table-detailed">
                     <thead>
                       <tr>
-                        <th></th>
-                        <th></th>
+                        <th>{t("common.rank")}</th>
+                        <th>{t("common.team")}</th>
                         <th>{t("common.gp")}</th>
                         <th>{t("common.wins")}</th>
                         <th>{t("common.losses")}</th>

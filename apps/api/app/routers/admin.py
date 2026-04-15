@@ -19,8 +19,8 @@ from ..deps import (
     require_team_access,
 )
 from ..models import Game, Player, PlayerAppearance, Season, Team, User
-from ..schemas import EligibilityReportItem, GameLineupOut, GameLineupUpdate
-from ..standings import compute_team_records
+from ..schemas import EligibilityReportItem, GameLineupOut, GameLineupUpdate, TeamOut
+from ..standings import build_standings_rank_map, compute_team_standings
 from ..storage import player_image_url, team_logo_url
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -41,13 +41,19 @@ def commit_or_raise(
         raise HTTPException(status_code=500, detail="Database error while saving changes") from exc
 
 
-def serialize_team(team: Team, record: dict[str, int]):
+def serialize_team(team: Team, record: dict[str, int | float], rank: int):
     return {
         "id": team.id,
         "name": team.name,
         "home_field": team.home_field,
+        "rank": rank,
+        "games_played": record.get("games_played", 0),
         "wins": record.get("wins", 0),
         "losses": record.get("losses", 0),
+        "winning_percentage": record.get("winning_percentage", 0),
+        "runs_for": record.get("runs_for", 0),
+        "runs_against": record.get("runs_against", 0),
+        "run_differential": record.get("run_differential", 0),
         "logo_url": team_logo_url(
             team.id,
             has_db_logo=team.logo_image is not None,
@@ -87,6 +93,15 @@ def serialize_player(player: Player, games_played: int = 0):
         ),
         "games_played": games_played,
     }
+
+
+def build_ranked_team_payload(team: Team, db: Session):
+    visible_teams = db.query(Team).filter(Team.is_visible.is_(True)).order_by(Team.name.asc()).all()
+    records = compute_team_standings(db, [item.id for item in visible_teams])
+    rank_by_team_id = build_standings_rank_map(visible_teams, records)
+    if team.id in rank_by_team_id:
+        return serialize_team(team, records.get(team.id, {}), rank_by_team_id[team.id])
+    return serialize_team(team, records.get(team.id, {}), 1)
 
 
 def build_games_played_map(db: Session, team_id: int) -> dict[int, int]:
@@ -265,11 +280,15 @@ class PlayerUpdate(BaseModel):
     bats: str | None = None
     throws: str | None = None
 
-@router.get("/teams")
+@router.get("/teams", response_model=list[TeamOut])
 def list_teams(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
     teams = db.query(Team).filter(Team.is_visible.is_(True)).order_by(Team.name.asc()).all()
-    records = compute_team_records(db, [team.id for team in teams])
-    return [serialize_team(team, records.get(team.id, {})) for team in teams]
+    records = compute_team_standings(db, [team.id for team in teams])
+    rank_by_team_id = build_standings_rank_map(teams, records)
+    return [
+        serialize_team(team, records.get(team.id, {}), rank_by_team_id.get(team.id, index + 1))
+        for index, team in enumerate(teams)
+    ]
 
 
 @router.post("/teams")
@@ -286,7 +305,7 @@ def create_team(
     db.add(team)
     commit_or_raise(db, conflict_detail="Team name already exists")
     db.refresh(team)
-    return serialize_team(team, {"wins": 0, "losses": 0})
+    return build_ranked_team_payload(team, db)
 
 
 @router.patch("/teams/{team_id}")
@@ -321,8 +340,7 @@ def update_team(
 
     commit_or_raise(db, conflict_detail="Team name already exists")
     db.refresh(team)
-    records = compute_team_records(db, [team.id])
-    return serialize_team(team, records.get(team.id, {}))
+    return build_ranked_team_payload(team, db)
 
 
 @router.delete("/teams/{team_id}")
