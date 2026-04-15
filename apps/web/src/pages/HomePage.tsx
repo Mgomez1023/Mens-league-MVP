@@ -76,7 +76,7 @@ export default function HomePage() {
   const standings = useMemo(() => sortStandings(teams), [teams]);
   const standingsSnapshot = useMemo(() => standings.slice(0, 5), [standings]);
   const upcomingGames = useMemo(() => getUpcomingGames(games).slice(0, 3), [games]);
-  const recentResults = useMemo(() => getRecentResults(games).slice(0, 4), [games]);
+  const recentResults = useMemo(() => getRecentResults(games).slice(0, 3), [games]);
   const selectedGame = useMemo(
     () => games.find((game) => game.id === selectedGameId) ?? null,
     [games, selectedGameId],

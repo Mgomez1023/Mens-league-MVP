@@ -180,10 +180,18 @@ export function getGameTeamData(
 
 export function sortStandings(teams: Team[]) {
   return [...teams].sort((a, b) => {
-    const winsDiff = (b.wins ?? 0) - (a.wins ?? 0);
-    if (winsDiff !== 0) return winsDiff;
-    const lossesDiff = (a.losses ?? 0) - (b.losses ?? 0);
-    if (lossesDiff !== 0) return lossesDiff;
+    const rankA = a.rank ?? Number.POSITIVE_INFINITY;
+    const rankB = b.rank ?? Number.POSITIVE_INFINITY;
+    if (rankA !== rankB && Number.isFinite(rankA) && Number.isFinite(rankB)) {
+      return rankA - rankB;
+    }
+
+    const pctDiff = (b.winning_percentage ?? 0) - (a.winning_percentage ?? 0);
+    if (pctDiff !== 0) return pctDiff;
+    const differentialDiff = (b.run_differential ?? 0) - (a.run_differential ?? 0);
+    if (differentialDiff !== 0) return differentialDiff;
+    const runsForDiff = (b.runs_for ?? 0) - (a.runs_for ?? 0);
+    if (runsForDiff !== 0) return runsForDiff;
     return a.name.localeCompare(b.name);
   });
 }
@@ -278,6 +286,10 @@ export function getCurrentScheduleGroupKey(groups: GameDateGroup[], now = new Da
 
 export function getRecord(team: Team) {
   return `${team.wins ?? 0}-${team.losses ?? 0}`;
+}
+
+export function formatWinningPercentage(team: Team) {
+  return (team.winning_percentage ?? 0).toFixed(3);
 }
 
 export function getUpcomingGames(games: Game[]) {

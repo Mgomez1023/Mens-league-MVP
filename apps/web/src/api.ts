@@ -7,8 +7,14 @@ export type Team = {
   id: number;
   name: string;
   home_field?: string | null;
+  rank?: number;
+  games_played?: number;
   wins?: number;
   losses?: number;
+  winning_percentage?: number;
+  runs_for?: number;
+  runs_against?: number;
+  run_differential?: number;
   logo_url?: string | null;
 };
 

@@ -12,7 +12,7 @@ import {
   SurfaceCard,
   TeamAvatar,
 } from "../components/ui";
-import { getRecord, sortStandings } from "../utils/league";
+import { formatWinningPercentage, sortStandings } from "../utils/league";
 
 export default function StandingsPage() {
   const { t } = useTranslation();
@@ -78,88 +78,86 @@ export default function StandingsPage() {
             />
           ) : (
             <>
-              <div className="table-wrap standings-table-wrap">
-                <table className="league-table standings-table">
-                  <thead>
-                    <tr>
-                      <th>{t("common.rank")}</th>
-                      <th>{t("common.team")}</th>
-                      <th>{t("common.wins")}</th>
-                      <th>{t("common.losses")}</th>
-                      <th>{t("common.record")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teams.map((team, index) => (
-                      <tr
-                        className="standings-row"
-                        key={team.id}
-                        role="link"
-                        tabIndex={0}
-                        onClick={() => openRoster(team.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            openRoster(team.id);
-                          }
-                        }}
-                      >
-                        <td className="standings-cell-rank" data-label={t("common.rank")}>
-                          <span className="standings-rank">#{index + 1}</span>
-                        </td>
-                        <td className="standings-cell-team" data-label={t("common.team")}>
-                          <div className="table-team">
-                            <TeamAvatar
-                              name={team.name}
-                              src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
-                              size="sm"
-                            />
-                            <div>
-                              <div className="table-team-name">{team.name}</div>
-                              {team.home_field && (
-                                <div className="table-team-meta">{team.home_field}</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="standings-cell-stat" data-label={t("common.wins")}>{team.wins ?? 0}</td>
-                        <td className="standings-cell-stat" data-label={t("common.losses")}>{team.losses ?? 0}</td>
-                        <td className="standings-cell-record" data-label={t("common.record")}>{getRecord(team)}</td>
+              <div className="standings-table-shell">
+                <div className="standings-table-mask" aria-hidden="true" />
+                <div className="table-wrap standings-table-wrap-scroll">
+                  <table className="league-table standings-table standings-table-detailed">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th></th>
+                        <th>{t("common.gp")}</th>
+                        <th>{t("common.wins")}</th>
+                        <th>{t("common.losses")}</th>
+                        <th>{t("common.pct")}</th>
+                        <th>{t("common.rf")}</th>
+                        <th>{t("common.ra")}</th>
+                        <th>{t("common.total")}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {teams.map((team, index) => (
+                        <tr
+                          className="standings-row"
+                          key={team.id}
+                          role="link"
+                          tabIndex={0}
+                          onClick={() => openRoster(team.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openRoster(team.id);
+                            }
+                          }}
+                        >
+                          <td
+                            className="standings-cell-rank standings-cell-sticky standings-cell-sticky-rank"
+                            data-label={t("common.rank")}
+                          >
+                            <span className="standings-rank">#{team.rank ?? index + 1}</span>
+                          </td>
+                          <td
+                            className="standings-cell-team standings-cell-sticky standings-cell-sticky-team"
+                            data-label={t("common.team")}
+                          >
+                            <div className="table-team">
+                              <TeamAvatar
+                                name={team.name}
+                                src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
+                                size="sm"
+                              />
+                              <div>
+                                <div className="table-team-name">{team.name}</div>
+                                {team.home_field && (
+                                  <div className="table-team-meta">{team.home_field}</div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="standings-cell-stat">
+                            {team.games_played ?? 0}
+                          </td>
+                          <td className="standings-cell-stat">{team.wins ?? 0}</td>
+                          <td className="standings-cell-stat">{team.losses ?? 0}</td>
+                          <td className="standings-cell-stat standings-cell-pct">
+                            {formatWinningPercentage(team)}
+                          </td>
+                          <td className="standings-cell-stat">
+                            {team.runs_for ?? 0}
+                          </td>
+                          <td className="standings-cell-stat">
+                            {team.runs_against ?? 0}
+                          </td>
+                          <td className="standings-cell-stat">
+                            {team.run_differential ?? 0}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <ol className="standings-mobile-list" aria-label={t("aria.leagueStandings")}>
-                {teams.map((team, index) => {
-                  const wins = team.wins ?? 0;
-                  const losses = team.losses ?? 0;
-
-                  return (
-                    <li className="standings-mobile-item" key={team.id}>
-                      <Link className="standings-mobile-link" to={`/teams/${team.id}/roster`}>
-                        <article className="standings-mobile-card">
-                          <div className="standings-mobile-rank">
-                            <span className="standings-rank">#{index + 1}</span>
-                          </div>
-                          <TeamAvatar
-                            name={team.name}
-                            src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
-                            size="sm"
-                          />
-                          <div className="standings-mobile-team">
-                            <div className="standings-mobile-team-name">{team.name}</div>
-                          </div>
-                          <div className="standings-mobile-record">{getRecord(team)}</div>
-                          <div className="standings-mobile-meta">
-                            {t("standings.summaryLine", { wins, losses })}
-                          </div>
-                        </article>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ol>
+              <p className="standings-scroll-hint">{t("standings.scrollHint")}</p>
             </>
           )}
         </SurfaceCard>
