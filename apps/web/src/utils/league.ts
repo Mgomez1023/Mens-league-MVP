@@ -195,10 +195,12 @@ export function sortStandings(teams: Team[]) {
       return rankA - rankB;
     }
 
-    const differentialDiff = (b.run_differential ?? 0) - (a.run_differential ?? 0);
-    if (differentialDiff !== 0) return differentialDiff;
     const winsDiff = (b.wins ?? 0) - (a.wins ?? 0);
     if (winsDiff !== 0) return winsDiff;
+    const lossesDiff = (a.losses ?? 0) - (b.losses ?? 0);
+    if (lossesDiff !== 0) return lossesDiff;
+    const differentialDiff = (b.run_differential ?? 0) - (a.run_differential ?? 0);
+    if (differentialDiff !== 0) return differentialDiff;
     return a.name.localeCompare(b.name);
   });
 }
@@ -216,7 +218,7 @@ function applyStandingsRanks(teams: Team[]) {
   let previousKey: string | null = null;
 
   return sortStandings(teams).map((team, index) => {
-    const key = `${team.run_differential ?? 0}:${team.wins ?? 0}`;
+    const key = `${team.wins ?? 0}:${team.losses ?? 0}:${team.run_differential ?? 0}`;
     const rank = key === previousKey ? previousRank : index + 1;
     previousRank = rank;
     previousKey = key;

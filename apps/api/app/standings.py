@@ -101,8 +101,9 @@ def compute_team_standings(db: Session, team_ids: list[int]):
 
 def get_standings_sort_values(record: StandingsRecord):
     return (
-        -record["run_differential"],
         -record["wins"],
+        record["losses"],
+        -record["run_differential"],
     )
 
 
@@ -121,7 +122,7 @@ def build_standings_rank_map(teams: list[Team], records: dict[int, StandingsReco
     empty_record = build_empty_record()
     rank_by_team_id: dict[int, int] = {}
     previous_rank = 0
-    previous_values: tuple[int, int] | None = None
+    previous_values: tuple[int, int, int] | None = None
 
     for index, team in enumerate(sort_teams_by_standings(teams, records), start=1):
         values = get_standings_sort_values(records.get(team.id, empty_record))
