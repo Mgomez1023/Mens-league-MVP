@@ -87,8 +87,7 @@ export default function StandingsPage() {
                   <table className="league-table standings-table standings-table-detailed">
                     <thead>
                       <tr>
-                        <th>{t("common.rank")}</th>
-                        <th>{t("common.team")}</th>
+                        <th className="standings-header-team">{t("common.team")}</th>
                         <th>{t("common.gp")}</th>
                         <th>{t("common.wins")}</th>
                         <th>{t("common.losses")}</th>
@@ -114,22 +113,17 @@ export default function StandingsPage() {
                           }}
                         >
                           <td
-                            className="standings-cell-rank standings-cell-sticky standings-cell-sticky-rank"
-                            data-label={t("common.rank")}
-                          >
-                            <span className="standings-rank">#{team.rank ?? index + 1}</span>
-                          </td>
-                          <td
                             className="standings-cell-team standings-cell-sticky standings-cell-sticky-team"
                             data-label={t("common.team")}
                           >
-                            <div className="table-team">
+                            <div className="standings-team-cluster">
+                              <span className="standings-rank">#{team.rank ?? index + 1}</span>
                               <TeamAvatar
                                 name={team.name}
                                 src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
                                 size="sm"
                               />
-                              <div>
+                              <div className="standings-team-copy">
                                 <div className="table-team-name">{team.name}</div>
                                 {team.home_field && (
                                   <div className="table-team-meta">{team.home_field}</div>
