@@ -336,7 +336,7 @@ function buildScheduleWeekLabelMap(games: Game[]) {
   });
 
   return new Map(
-    sortedKeys.map((key, index) => [key, i18n.t("games.weekLabel", { count: index })]),
+    sortedKeys.map((key, index) => [key, i18n.t("games.weekLabel", { count: index + 1 })]),
   );
 }
 
