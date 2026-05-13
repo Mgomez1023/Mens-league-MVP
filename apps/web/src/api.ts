@@ -12,6 +12,7 @@ export type Team = {
   wins?: number;
   losses?: number;
   winning_percentage?: number;
+  games_behind?: number;
   runs_for?: number;
   runs_against?: number;
   run_differential?: number;

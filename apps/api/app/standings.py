@@ -20,6 +20,7 @@ class StandingsRecord(TypedDict):
     wins: int
     losses: int
     winning_percentage: float
+    games_behind: float
     runs_for: int
     runs_against: int
     run_differential: int
@@ -31,6 +32,7 @@ def build_empty_record() -> StandingsRecord:
         "wins": 0,
         "losses": 0,
         "winning_percentage": 0.0,
+        "games_behind": 0.0,
         "runs_for": 0,
         "runs_against": 0,
         "run_differential": 0,
@@ -66,26 +68,23 @@ def compute_team_standings(db: Session, team_ids: list[int]):
     for game in games:
         if not is_finalized_game(game):
             continue
-        if game.home_team_id not in records or game.away_team_id not in records:
+        home_score = game.home_score
+        away_score = game.away_score
+        if home_score is None or away_score is None:
             continue
+        if game.home_team_id in records:
+            apply_game_result(
+                records[game.home_team_id],
+                runs_for=home_score,
+                runs_against=away_score,
+            )
 
-        home_record = records[game.home_team_id]
-        away_record = records[game.away_team_id]
-
-        home_record["games_played"] += 1
-        away_record["games_played"] += 1
-
-        home_record["runs_for"] += game.home_score
-        home_record["runs_against"] += game.away_score
-        away_record["runs_for"] += game.away_score
-        away_record["runs_against"] += game.home_score
-
-        if game.home_score > game.away_score:
-            home_record["wins"] += 1
-            away_record["losses"] += 1
-        elif game.away_score > game.home_score:
-            away_record["wins"] += 1
-            home_record["losses"] += 1
+        if game.away_team_id in records:
+            apply_game_result(
+                records[game.away_team_id],
+                runs_for=away_score,
+                runs_against=home_score,
+            )
 
     for record in records.values():
         record["run_differential"] = record["runs_for"] - record["runs_against"]
@@ -96,11 +95,38 @@ def compute_team_standings(db: Session, team_ids: list[int]):
             else 0.0
         )
 
+    apply_games_behind(records)
+
     return records
+
+
+def apply_game_result(record: StandingsRecord, *, runs_for: int, runs_against: int):
+    record["games_played"] += 1
+    record["runs_for"] += runs_for
+    record["runs_against"] += runs_against
+    if runs_for > runs_against:
+        record["wins"] += 1
+    elif runs_against > runs_for:
+        record["losses"] += 1
+
+
+def apply_games_behind(records: dict[int, StandingsRecord]):
+    if not any(record["games_played"] > 0 for record in records.values()):
+        for record in records.values():
+            record["games_behind"] = 0.0
+        return
+
+    leader = min(records.values(), key=get_standings_sort_values)
+    for record in records.values():
+        record["games_behind"] = (
+            (leader["wins"] - record["wins"])
+            + (record["losses"] - leader["losses"])
+        ) / 2
 
 
 def get_standings_sort_values(record: StandingsRecord):
     return (
+        -record["winning_percentage"],
         -record["wins"],
         record["losses"],
         -record["run_differential"],
@@ -122,7 +148,7 @@ def build_standings_rank_map(teams: list[Team], records: dict[int, StandingsReco
     empty_record = build_empty_record()
     rank_by_team_id: dict[int, int] = {}
     previous_rank = 0
-    previous_values: tuple[int, int, int] | None = None
+    previous_values: tuple[float, int, int, int] | None = None
 
     for index, team in enumerate(sort_teams_by_standings(teams, records), start=1):
         values = get_standings_sort_values(records.get(team.id, empty_record))

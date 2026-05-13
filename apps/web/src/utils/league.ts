@@ -195,6 +195,8 @@ export function sortStandings(teams: Team[]) {
       return rankA - rankB;
     }
 
+    const pctDiff = (b.winning_percentage ?? 0) - (a.winning_percentage ?? 0);
+    if (pctDiff !== 0) return pctDiff;
     const winsDiff = (b.wins ?? 0) - (a.wins ?? 0);
     if (winsDiff !== 0) return winsDiff;
     const lossesDiff = (a.losses ?? 0) - (b.losses ?? 0);
@@ -218,7 +220,7 @@ function applyStandingsRanks(teams: Team[]) {
   let previousKey: string | null = null;
 
   return sortStandings(teams).map((team, index) => {
-    const key = `${team.wins ?? 0}:${team.losses ?? 0}:${team.run_differential ?? 0}`;
+    const key = `${team.winning_percentage ?? 0}:${team.wins ?? 0}:${team.losses ?? 0}:${team.run_differential ?? 0}`;
     const rank = key === previousKey ? previousRank : index + 1;
     previousRank = rank;
     previousKey = key;
@@ -230,6 +232,7 @@ function hasComputedStandings(team: Team) {
   return (
     typeof team.games_played === "number" &&
     typeof team.winning_percentage === "number" &&
+    typeof team.games_behind === "number" &&
     typeof team.runs_for === "number" &&
     typeof team.runs_against === "number" &&
     typeof team.run_differential === "number"
@@ -251,6 +254,7 @@ export function resolveStandings(teams: Team[], games: Game[]) {
         wins: 0,
         losses: 0,
         winning_percentage: 0,
+        games_behind: 0,
         runs_for: 0,
         runs_against: 0,
         run_differential: 0,
@@ -260,29 +264,18 @@ export function resolveStandings(teams: Team[], games: Game[]) {
 
   for (const game of games) {
     if (!isFinalStandingsGame(game)) continue;
-    if (game.home_team_id == null || game.away_team_id == null) continue;
     if (game.home_score == null || game.away_score == null) continue;
 
-    const homeTeam = standingsMap.get(game.home_team_id);
-    const awayTeam = standingsMap.get(game.away_team_id);
-    if (!homeTeam || !awayTeam) continue;
+    const homeTeam = game.home_team_id == null ? undefined : standingsMap.get(game.home_team_id);
+    const awayTeam = game.away_team_id == null ? undefined : standingsMap.get(game.away_team_id);
     const homeScore = game.home_score;
     const awayScore = game.away_score;
 
-    homeTeam.games_played = (homeTeam.games_played ?? 0) + 1;
-    awayTeam.games_played = (awayTeam.games_played ?? 0) + 1;
-
-    homeTeam.runs_for = (homeTeam.runs_for ?? 0) + homeScore;
-    homeTeam.runs_against = (homeTeam.runs_against ?? 0) + awayScore;
-    awayTeam.runs_for = (awayTeam.runs_for ?? 0) + awayScore;
-    awayTeam.runs_against = (awayTeam.runs_against ?? 0) + homeScore;
-
-    if (homeScore > awayScore) {
-      homeTeam.wins = (homeTeam.wins ?? 0) + 1;
-      awayTeam.losses = (awayTeam.losses ?? 0) + 1;
-    } else if (awayScore > homeScore) {
-      awayTeam.wins = (awayTeam.wins ?? 0) + 1;
-      homeTeam.losses = (homeTeam.losses ?? 0) + 1;
+    if (homeTeam) {
+      applyTeamGameResult(homeTeam, homeScore, awayScore);
+    }
+    if (awayTeam) {
+      applyTeamGameResult(awayTeam, awayScore, homeScore);
     }
   }
 
@@ -297,7 +290,32 @@ export function resolveStandings(teams: Team[], games: Game[]) {
     };
   });
 
-  return applyStandingsRanks(computedTeams);
+  return applyStandingsRanks(applyGamesBehind(computedTeams));
+}
+
+function applyTeamGameResult(team: Team, runsFor: number, runsAgainst: number) {
+  team.games_played = (team.games_played ?? 0) + 1;
+  team.runs_for = (team.runs_for ?? 0) + runsFor;
+  team.runs_against = (team.runs_against ?? 0) + runsAgainst;
+  if (runsFor > runsAgainst) {
+    team.wins = (team.wins ?? 0) + 1;
+  } else if (runsAgainst > runsFor) {
+    team.losses = (team.losses ?? 0) + 1;
+  }
+}
+
+function applyGamesBehind(teams: Team[]) {
+  if (!teams.some((team) => (team.games_played ?? 0) > 0)) {
+    return teams.map((team) => ({ ...team, games_behind: 0 }));
+  }
+
+  const [leader] = sortStandings(teams);
+  return teams.map((team) => ({
+    ...team,
+    games_behind:
+      (((leader.wins ?? 0) - (team.wins ?? 0))
+        + ((team.losses ?? 0) - (leader.losses ?? 0))) / 2,
+  }));
 }
 
 export function getSeasonLabel(games: Game[]) {
@@ -394,6 +412,11 @@ export function getRecord(team: Team) {
 
 export function formatWinningPercentage(team: Team) {
   return (team.winning_percentage ?? 0).toFixed(3);
+}
+
+export function formatGamesBehind(team: Team) {
+  const gamesBehind = team.games_behind ?? 0;
+  return Number.isInteger(gamesBehind) ? String(gamesBehind) : gamesBehind.toFixed(1);
 }
 
 export function getUpcomingGames(games: Game[]) {

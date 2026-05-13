@@ -51,6 +51,7 @@ def serialize_team(team: Team, record: dict[str, int | float], rank: int):
         "wins": record.get("wins", 0),
         "losses": record.get("losses", 0),
         "winning_percentage": record.get("winning_percentage", 0),
+        "games_behind": record.get("games_behind", 0),
         "runs_for": record.get("runs_for", 0),
         "runs_against": record.get("runs_against", 0),
         "run_differential": record.get("run_differential", 0),

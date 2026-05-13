@@ -32,6 +32,7 @@ class TeamOut(BaseModel):
     wins: int = 0
     losses: int = 0
     winning_percentage: float = 0.0
+    games_behind: float = 0.0
     runs_for: int = 0
     runs_against: int = 0
     run_differential: int = 0

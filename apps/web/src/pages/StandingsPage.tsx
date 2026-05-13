@@ -12,7 +12,7 @@ import {
   SurfaceCard,
   TeamAvatar,
 } from "../components/ui";
-import { formatWinningPercentage, resolveStandings } from "../utils/league";
+import { formatGamesBehind, formatWinningPercentage, resolveStandings } from "../utils/league";
 
 export default function StandingsPage() {
   const { t } = useTranslation();
@@ -92,6 +92,7 @@ export default function StandingsPage() {
                         <th>{t("common.wins")}</th>
                         <th>{t("common.losses")}</th>
                         <th>{t("common.pct")}</th>
+                        <th>{t("common.gb")}</th>
                         <th>{t("common.rf")}</th>
                         <th>{t("common.ra")}</th>
                         <th>{t("common.total")}</th>
@@ -139,6 +140,7 @@ export default function StandingsPage() {
                           <td className="standings-cell-stat standings-cell-pct">
                             {formatWinningPercentage(team)}
                           </td>
+                          <td className="standings-cell-stat">{formatGamesBehind(team)}</td>
                           <td className="standings-cell-stat">
                             {team.runs_for ?? 0}
                           </td>
