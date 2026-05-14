@@ -89,7 +89,7 @@ const emptyScoreForm = {
 
 const SPECIAL_SCHEDULE_EVENTS = [
   {
-    date: "2026-05-24",
+    date: "",
     labelKey: "games.specialEvents.indianapolisTournament",
     week: 7,
   },
