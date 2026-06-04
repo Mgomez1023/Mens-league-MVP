@@ -1959,6 +1959,44 @@ body {
   white-space: nowrap;
 }
 
+.home-sponsor-card h3 {
+  margin: 0;
+}
+
+.home-sponsors-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.home-sponsor-card {
+  display: flex;
+  min-height: 8.4rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid rgba(145, 198, 239, 0.4);
+  border-radius: 12px;
+  background: rgba(247, 251, 255, 0.92);
+  box-shadow: 0 8px 18px rgba(6, 10, 14, 0.1);
+  text-align: center;
+}
+
+.home-sponsor-logo {
+  width: 100%;
+  max-width: 7.2rem;
+  height: 4rem;
+  object-fit: contain;
+}
+
+.home-sponsor-card h3 {
+  color: #18212a;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
 .schedule-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 340px));

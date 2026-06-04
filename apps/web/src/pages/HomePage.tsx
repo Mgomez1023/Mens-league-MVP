@@ -5,6 +5,10 @@ import { Link } from "react-router-dom";
 import { fetchGamesPublic, fetchTeamsPublic, resolveApiUrl } from "../api";
 import type { Game, Team } from "../api";
 import homeHeroImage from "../assets/Background.png";
+import envisionMeLogo from "../assets/Sponsors/envision-me.jpg";
+import ipmLogo from "../assets/Sponsors/IPM.png";
+import networkXpertsGroupLogo from "../assets/Sponsors/network-xperts-group.png";
+import packagingDesignLogo from "../assets/Sponsors/packaging.jpg";
 import { FacebookPageEmbed } from "../components/FacebookPageEmbed";
 import { GameDetailsDialog } from "../components/GameDetailsDialog";
 import { PublicGameCard } from "../components/PublicGameCard";
@@ -25,6 +29,25 @@ import {
   getUpcomingGames,
   sortStandings,
 } from "../utils/league";
+
+const sponsors = [
+  {
+    name: "Envision Me",
+    logo: envisionMeLogo,
+  },
+  {
+    name: "Packaging Design",
+    logo: packagingDesignLogo,
+  },
+  {
+    name: "IPM",
+    logo: ipmLogo,
+  },
+  {
+    name: "Network Xperts Group",
+    logo: networkXpertsGroupLogo,
+  },
+];
 
 function HomeSocialIcon({ icon }: { icon: (typeof leagueProfile.socials)[number]["icon"] }) {
   if (icon === "facebook") {
@@ -404,7 +427,24 @@ export default function HomePage() {
               </div>
             </SurfaceCard>
 
-
+            <SurfaceCard>
+              <SectionHeader
+                title="Thanks to Our Sponsors"
+                description="Supporting the Benito Juarez Men's Baseball League."
+              />
+              <div className="home-sponsors-grid">
+                {sponsors.map((sponsor) => (
+                  <article className="home-sponsor-card" key={sponsor.name}>
+                    <img
+                      className="home-sponsor-logo"
+                      src={sponsor.logo}
+                      alt={`${sponsor.name} sponsor logo`}
+                    />
+                    <h3>{sponsor.name}</h3>
+                  </article>
+                ))}
+              </div>
+            </SurfaceCard>
           </div>
         </div>
       )}
