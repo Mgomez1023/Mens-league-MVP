@@ -671,9 +671,40 @@ export type ImportGamesResult = {
   errors: Array<{ row: number; message: string }>;
 };
 
-export async function importGamesCsv(file: File) {
+export type AdminGamesImportResult = {
+  created: number;
+  deleted: number;
+  replace_existing: boolean;
+};
+
+export async function exportGamesCsv() {
+  const res = await authenticatedFetch(`${API_BASE}/admin/games/export.csv`);
+  return res.blob();
+}
+
+export function importGamesCsv(file: File): Promise<ImportGamesResult>;
+export function importGamesCsv(
+  file: File,
+  options: { replaceExisting?: boolean },
+): Promise<AdminGamesImportResult>;
+export async function importGamesCsv(
+  file: File,
+  options?: { replaceExisting?: boolean },
+): Promise<ImportGamesResult | AdminGamesImportResult> {
   const formData = new FormData();
   formData.append("file", file);
+
+  if (options) {
+    const query = new URLSearchParams({
+      replace_existing: String(options.replaceExisting ?? true),
+    });
+    const res = await authenticatedFetch(`${API_BASE}/admin/games/import.csv?${query.toString()}`, {
+      method: "POST",
+      body: formData,
+    });
+    return res.json() as Promise<AdminGamesImportResult>;
+  }
+
   const res = await authenticatedFetch(`${API_BASE}/games/import-csv`, {
     method: "POST",
     body: formData,

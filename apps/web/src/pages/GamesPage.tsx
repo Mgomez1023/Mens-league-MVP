@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -8,6 +8,7 @@ import {
   clearGames,
   createGame,
   deleteGame,
+  exportGamesCsv,
   fetchGames,
   fetchGameLineup,
   fetchGamesPublic,
@@ -131,6 +132,8 @@ export default function GamesPage({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importModalMode, setImportModalMode] = useState<CsvImportMode>("schedule");
+  const [scheduleCsvExporting, setScheduleCsvExporting] = useState(false);
+  const [scheduleCsvImporting, setScheduleCsvImporting] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
@@ -760,6 +763,72 @@ export default function GamesPage({
     setTeams(freshTeams);
   };
 
+  const handleScheduleCsvExport = async () => {
+    setNotice(null);
+    setError(null);
+    setScheduleCsvExporting(true);
+
+    try {
+      const blob = await exportGamesCsv();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "games-export.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setNotice(t("games.scheduleCsvExported"));
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        return;
+      }
+      if (err instanceof PermissionError) {
+        setError(t("auth.adminAccessRequired"));
+        return;
+      }
+      setError(t("games.scheduleCsvExportError"));
+    } finally {
+      setScheduleCsvExporting(false);
+    }
+  };
+
+  const handleScheduleCsvSyncImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+
+    const confirmed = window.confirm(t("games.scheduleCsvImportConfirm"));
+    if (!confirmed) return;
+
+    setNotice(null);
+    setError(null);
+    setScheduleCsvImporting(true);
+
+    try {
+      const result = await importGamesCsv(file, { replaceExisting: true });
+      await refreshAdminData();
+      setNotice(t("games.scheduleCsvImported", { count: result.created }));
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        return;
+      }
+      if (err instanceof PermissionError) {
+        setError(t("auth.adminAccessRequired"));
+        return;
+      }
+      if (err instanceof ApiError && err.detail) {
+        setError(err.detail);
+        return;
+      }
+      setError(t("games.scheduleCsvImportError"));
+    } finally {
+      setScheduleCsvImporting(false);
+    }
+  };
+
   const handleScheduleCsvImport = async (file: File): Promise<CsvImportResult> => {
     setNotice(null);
     setError(null);
@@ -1044,6 +1113,23 @@ export default function GamesPage({
               >
                 {formOpen ? t("common.closeForm") : t("buttons.addGame")}
               </button>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={handleScheduleCsvExport}
+                disabled={scheduleCsvExporting}
+              >
+                {scheduleCsvExporting ? t("games.exportingScheduleCsv") : t("buttons.exportScheduleCsv")}
+              </button>
+              <label className="button button-secondary file-button-inline" aria-disabled={scheduleCsvImporting}>
+                {scheduleCsvImporting ? t("games.importingScheduleCsv") : t("buttons.importScheduleCsv")}
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleScheduleCsvSyncImport}
+                  disabled={scheduleCsvImporting}
+                />
+              </label>
               <button
                 className="button button-secondary"
                 type="button"

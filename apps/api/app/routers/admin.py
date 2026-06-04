@@ -1,7 +1,9 @@
+import csv
 import datetime
-from io import BytesIO
+from io import BytesIO, StringIO, TextIOWrapper
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from PIL import Image, ImageOps
 from sqlalchemy import func
@@ -24,6 +26,39 @@ from ..standings import build_standings_rank_map, compute_team_standings
 from ..storage import player_image_url, team_logo_url
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+GAME_CSV_HEADERS = [
+    "source_game_id",
+    "date",
+    "time",
+    "field",
+    "home_team_id",
+    "home_team_name",
+    "away_team_id",
+    "away_team_name",
+    "home_score",
+    "away_score",
+    "status",
+]
+
+GAME_CSV_IMPORT_REQUIRED_HEADERS = [
+    "date",
+    "time",
+    "field",
+    "home_team_name",
+    "away_team_name",
+    "home_score",
+    "away_score",
+    "status",
+]
+
+GAME_CSV_ALLOWED_STATUSES = {
+    "SCHEDULED",
+    "IN_PROGRESS",
+    "FINAL",
+    "POSTPONED",
+    "CANCELLED",
+}
 
 
 def commit_or_raise(
@@ -253,6 +288,234 @@ def resolve_game_team_selection(
     raise HTTPException(status_code=400, detail=f"{side_label} team is required")
 
 
+def get_game_export_team_name(
+    *,
+    team_id: int | None,
+    free_text_name: str | None,
+    team_by_id: dict[int, Team],
+) -> str:
+    if team_id is not None:
+        team = team_by_id.get(team_id)
+        if team:
+            return team.name
+    return free_text_name or ""
+
+
+def build_games_csv_export(db: Session) -> str:
+    games = (
+        db.query(Game)
+        .order_by(Game.date.asc(), Game.time.asc(), Game.id.asc())
+        .all()
+    )
+    team_ids = {
+        team_id
+        for game in games
+        for team_id in (game.home_team_id, game.away_team_id)
+        if team_id is not None
+    }
+    teams = db.query(Team).filter(Team.id.in_(team_ids)).all() if team_ids else []
+    team_by_id = {team.id: team for team in teams}
+
+    output = StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=GAME_CSV_HEADERS, lineterminator="\r\n")
+    writer.writeheader()
+
+    for game in games:
+        writer.writerow(
+            {
+                "source_game_id": game.id,
+                "date": game.date.isoformat(),
+                "time": game.time or "",
+                "field": game.field or "",
+                "home_team_id": game.home_team_id or "",
+                "home_team_name": get_game_export_team_name(
+                    team_id=game.home_team_id,
+                    free_text_name=game.home_team_name,
+                    team_by_id=team_by_id,
+                ),
+                "away_team_id": game.away_team_id or "",
+                "away_team_name": get_game_export_team_name(
+                    team_id=game.away_team_id,
+                    free_text_name=game.away_team_name,
+                    team_by_id=team_by_id,
+                ),
+                "home_score": "" if game.home_score is None else game.home_score,
+                "away_score": "" if game.away_score is None else game.away_score,
+                "status": game.status or "SCHEDULED",
+            }
+        )
+
+    return output.getvalue()
+
+
+def normalize_csv_header(value: str) -> str:
+    return value.strip().casefold()
+
+
+def blank_to_none(value: object) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
+def format_csv_import_errors(errors: list[str]) -> str:
+    shown = errors[:5]
+    suffix = "" if len(errors) <= 5 else f"; and {len(errors) - 5} more"
+    return f"CSV import failed: {'; '.join(shown)}{suffix}"
+
+
+def build_team_name_lookup(db: Session) -> dict[str, Team]:
+    team_by_name: dict[str, Team] = {}
+    duplicate_names: set[str] = set()
+
+    for team in db.query(Team).order_by(Team.name.asc()).all():
+        key = team.name.strip().casefold()
+        if not key:
+            continue
+        if key in team_by_name:
+            duplicate_names.add(team.name)
+        else:
+            team_by_name[key] = team
+
+    if duplicate_names:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Local team names must be unique when compared case-insensitively: "
+                + ", ".join(sorted(duplicate_names))
+            ),
+        )
+
+    return team_by_name
+
+
+def parse_csv_score(value: str | None, *, row_index: int, column: str, errors: list[str]) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        errors.append(f"Row {row_index}: {column} must be an integer")
+        return None
+
+
+def parse_games_csv_import(file: UploadFile, db: Session) -> list[dict[str, object]]:
+    try:
+        reader = csv.DictReader(TextIOWrapper(file.file, encoding="utf-8-sig", newline=""))
+        fieldnames = reader.fieldnames
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="CSV must be UTF-8 encoded") from exc
+
+    if not fieldnames:
+        raise HTTPException(status_code=400, detail="CSV header missing")
+
+    header_map = {
+        normalize_csv_header(header): header
+        for header in fieldnames
+        if header is not None and header.strip()
+    }
+    missing_headers = [
+        header
+        for header in GAME_CSV_IMPORT_REQUIRED_HEADERS
+        if normalize_csv_header(header) not in header_map
+    ]
+    if missing_headers:
+        raise HTTPException(
+            status_code=400,
+            detail=f"CSV missing required header(s): {', '.join(missing_headers)}",
+        )
+
+    team_by_name = build_team_name_lookup(db)
+    parsed_games: list[dict[str, object]] = []
+    errors: list[str] = []
+
+    def get_value(row: dict[str, object], header: str) -> str | None:
+        original_header = header_map.get(normalize_csv_header(header))
+        if not original_header:
+            return None
+        return blank_to_none(row.get(original_header))
+
+    def resolve_team(row_index: int, name: str | None, side_label: str) -> Team | None:
+        if not name:
+            errors.append(f"Row {row_index}: {side_label}_team_name is required")
+            return None
+        team = team_by_name.get(name.casefold())
+        if not team:
+            errors.append(
+                f"Row {row_index}: {side_label}_team_name '{name}' does not match a local team"
+            )
+            return None
+        return team
+
+    try:
+        for row_index, raw in enumerate(reader, start=2):
+            if not raw or all(blank_to_none(value) is None for value in raw.values()):
+                continue
+
+            date_value = get_value(raw, "date")
+            if not date_value:
+                errors.append(f"Row {row_index}: date is required")
+                continue
+
+            try:
+                game_date = datetime.date.fromisoformat(date_value)
+            except ValueError:
+                errors.append(f"Row {row_index}: date must be YYYY-MM-DD")
+                continue
+
+            home_team = resolve_team(row_index, get_value(raw, "home_team_name"), "home")
+            away_team = resolve_team(row_index, get_value(raw, "away_team_name"), "away")
+            if not home_team or not away_team:
+                continue
+            if home_team.id == away_team.id:
+                errors.append(f"Row {row_index}: home_team_name and away_team_name must differ")
+                continue
+
+            home_score = parse_csv_score(
+                get_value(raw, "home_score"),
+                row_index=row_index,
+                column="home_score",
+                errors=errors,
+            )
+            away_score = parse_csv_score(
+                get_value(raw, "away_score"),
+                row_index=row_index,
+                column="away_score",
+                errors=errors,
+            )
+            if errors and errors[-1].startswith(f"Row {row_index}:"):
+                continue
+
+            status = (get_value(raw, "status") or "SCHEDULED").upper()
+            if status not in GAME_CSV_ALLOWED_STATUSES:
+                errors.append(
+                    f"Row {row_index}: status must be one of "
+                    + ", ".join(sorted(GAME_CSV_ALLOWED_STATUSES))
+                )
+                continue
+
+            parsed_games.append(
+                {
+                    "date": game_date,
+                    "time": get_value(raw, "time"),
+                    "field": get_value(raw, "field"),
+                    "home_team_id": home_team.id,
+                    "away_team_id": away_team.id,
+                    "home_score": home_score,
+                    "away_score": away_score,
+                    "status": status,
+                }
+            )
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="CSV must be UTF-8 encoded") from exc
+
+    if errors:
+        raise HTTPException(status_code=400, detail=format_csv_import_errors(errors))
+
+    return parsed_games
+
+
 class TeamCreate(BaseModel):
     name: str = Field(..., min_length=1)
     home_field: str | None = None
@@ -439,6 +702,63 @@ def upload_team_logo(
 def list_games(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
     games = db.query(Game).order_by(Game.date.asc(), Game.time.asc()).all()
     return [serialize_game(game) for game in games]
+
+
+@router.get("/games/export.csv")
+def export_games_csv(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    content = build_games_csv_export(db)
+    return Response(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="games-export.csv"'},
+    )
+
+
+@router.post("/games/import.csv")
+def import_admin_games_csv(
+    replace_existing: bool = Query(default=True),
+    file: UploadFile = File(...),
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="CSV file required")
+
+    season = db.query(Season).order_by(Season.year.desc()).first()
+    if not season:
+        raise HTTPException(status_code=400, detail="No season configured")
+
+    parsed_games = parse_games_csv_import(file, db)
+
+    deleted_games = 0
+    if replace_existing:
+        db.query(PlayerAppearance).delete(synchronize_session=False)
+        deleted_games = db.query(Game).delete(synchronize_session=False)
+
+    for parsed_game in parsed_games:
+        db.add(
+            Game(
+                season_id=season.id,
+                date=parsed_game["date"],
+                time=parsed_game["time"],
+                field=parsed_game["field"],
+                home_team_id=parsed_game["home_team_id"],
+                away_team_id=parsed_game["away_team_id"],
+                home_team_name=None,
+                away_team_name=None,
+                home_score=parsed_game["home_score"],
+                away_score=parsed_game["away_score"],
+                status=parsed_game["status"],
+            )
+        )
+
+    commit_or_raise(db)
+
+    return {
+        "created": len(parsed_games),
+        "deleted": deleted_games,
+        "replace_existing": replace_existing,
+    }
 
 
 @router.get("/games/{game_id}/lineup", response_model=GameLineupOut)
