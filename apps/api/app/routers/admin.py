@@ -20,9 +20,14 @@ from ..deps import (
     is_admin_user,
     require_team_access,
 )
-from ..models import Game, Player, PlayerAppearance, Season, Team, User
+from ..models import Game, OfficialStanding, Player, PlayerAppearance, Season, Team, User
 from ..schemas import EligibilityReportItem, GameLineupOut, GameLineupUpdate, TeamOut
-from ..standings import build_standings_rank_map, compute_team_standings
+from ..standings import (
+    build_public_standings_view,
+    build_standings_rank_map,
+    build_week8_official_seed_rows,
+    compute_team_standings,
+)
 from ..storage import player_image_url, team_logo_url
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -97,6 +102,63 @@ def serialize_team(team: Team, record: dict[str, int | float], rank: int):
         ),
     }
 
+
+def get_visible_teams(db: Session) -> list[Team]:
+    return db.query(Team).filter(Team.is_visible.is_(True)).order_by(Team.name.asc()).all()
+
+
+def serialize_official_standing(standing: OfficialStanding, team: Team):
+    return {
+        "id": standing.id,
+        "team_id": standing.team_id,
+        "team_name": team.name,
+        "position": standing.position,
+        "games_played": standing.games_played,
+        "wins": standing.wins,
+        "losses": standing.losses,
+        "winning_percentage": standing.winning_percentage,
+        "games_behind": standing.games_behind,
+        "runs_for": standing.runs_for,
+        "runs_against": standing.runs_against,
+        "run_differential": standing.run_differential,
+        "note": standing.note,
+        "updated_at": standing.updated_at,
+    }
+
+
+def upsert_official_standing(
+    db: Session,
+    *,
+    team_id: int,
+    position: int,
+    games_played: int,
+    wins: int,
+    losses: int,
+    winning_percentage: float,
+    games_behind: float,
+    runs_for: int,
+    runs_against: int,
+    run_differential: int,
+    note: str | None = None,
+) -> OfficialStanding:
+    standing = db.query(OfficialStanding).filter(OfficialStanding.team_id == team_id).first()
+    if not standing:
+        standing = OfficialStanding(team_id=team_id, position=position)
+        db.add(standing)
+
+    standing.position = position
+    standing.games_played = games_played
+    standing.wins = wins
+    standing.losses = losses
+    standing.winning_percentage = winning_percentage
+    standing.games_behind = games_behind
+    standing.runs_for = runs_for
+    standing.runs_against = runs_against
+    standing.run_differential = run_differential
+    standing.note = note.strip() if note and note.strip() else None
+    standing.updated_at = datetime.datetime.utcnow()
+    return standing
+
 def serialize_game(game: Game):
     return {
         "id": game.id,
@@ -110,6 +172,10 @@ def serialize_game(game: Game):
         "home_score": game.home_score,
         "away_score": game.away_score,
         "status": game.status,
+        "forfeit_winner": game.forfeit_winner,
+        "counts_for_record": game.counts_for_record,
+        "counts_for_runs": game.counts_for_runs,
+        "standings_note": game.standings_note,
     }
 
 def serialize_player(player: Player, games_played: int = 0):
@@ -132,9 +198,10 @@ def serialize_player(player: Player, games_played: int = 0):
 
 
 def build_ranked_team_payload(team: Team, db: Session):
-    visible_teams = db.query(Team).filter(Team.is_visible.is_(True)).order_by(Team.name.asc()).all()
-    records = compute_team_standings(db, [item.id for item in visible_teams])
-    rank_by_team_id = build_standings_rank_map(visible_teams, records)
+    visible_teams = get_visible_teams(db)
+    standings_view = build_public_standings_view(db, visible_teams)
+    records = standings_view["records"]
+    rank_by_team_id = standings_view["rank_by_team_id"]
     if team.id in rank_by_team_id:
         return serialize_team(team, records.get(team.id, {}), rank_by_team_id[team.id])
     return serialize_team(team, records.get(team.id, {}), 1)
@@ -249,6 +316,10 @@ class GameCreate(BaseModel):
     status: str = "SCHEDULED"
     home_score: int | None = None
     away_score: int | None = None
+    forfeit_winner: str | None = None
+    counts_for_record: bool = True
+    counts_for_runs: bool = True
+    standings_note: str | None = None
 
 
 class GameUpdate(BaseModel):
@@ -262,9 +333,31 @@ class GameUpdate(BaseModel):
     status: str | None = None
     home_score: int | None = None
     away_score: int | None = None
+    forfeit_winner: str | None = None
+    counts_for_record: bool | None = None
+    counts_for_runs: bool | None = None
+    standings_note: str | None = None
 
 
 def normalize_team_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    trimmed = value.strip()
+    return trimmed or None
+
+
+def normalize_forfeit_winner(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().upper()
+    if not normalized:
+        return None
+    if normalized not in {"HOME", "AWAY"}:
+        raise HTTPException(status_code=400, detail="forfeit_winner must be HOME or AWAY")
+    return normalized
+
+
+def normalize_standings_note(value: str | None) -> str | None:
     if value is None:
         return None
     trimmed = value.strip()
@@ -544,14 +637,167 @@ class PlayerUpdate(BaseModel):
     bats: str | None = None
     throws: str | None = None
 
-@router.get("/teams", response_model=list[TeamOut])
-def list_teams(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
-    teams = db.query(Team).filter(Team.is_visible.is_(True)).order_by(Team.name.asc()).all()
+
+class OfficialStandingPayload(BaseModel):
+    team_id: int = Field(..., gt=0)
+    position: int = Field(..., ge=1)
+    games_played: int = Field(..., ge=0)
+    wins: int = Field(..., ge=0)
+    losses: int = Field(..., ge=0)
+    winning_percentage: float = Field(..., ge=0)
+    games_behind: float = Field(..., ge=0)
+    runs_for: int = Field(..., ge=0)
+    runs_against: int = Field(..., ge=0)
+    run_differential: int
+    note: str | None = None
+
+
+class OfficialStandingsUpdate(BaseModel):
+    standings: list[OfficialStandingPayload]
+
+
+def build_calculated_standings_editor_rows(db: Session):
+    teams = get_visible_teams(db)
     records = compute_team_standings(db, [team.id for team in teams])
     rank_by_team_id = build_standings_rank_map(teams, records)
+    ordered_teams = sorted(
+        teams,
+        key=lambda team: rank_by_team_id.get(team.id, len(teams) + 1),
+    )
+    rows = []
+    for index, team in enumerate(ordered_teams, start=1):
+        record = records.get(team.id, {})
+        rows.append(
+            {
+                "id": None,
+                "team_id": team.id,
+                "team_name": team.name,
+                "position": rank_by_team_id.get(team.id, index),
+                "games_played": record.get("games_played", 0),
+                "wins": record.get("wins", 0),
+                "losses": record.get("losses", 0),
+                "winning_percentage": record.get("winning_percentage", 0),
+                "games_behind": record.get("games_behind", 0),
+                "runs_for": record.get("runs_for", 0),
+                "runs_against": record.get("runs_against", 0),
+                "run_differential": record.get("run_differential", 0),
+                "note": "Calculated reference",
+                "source": "calculated",
+                "updated_at": None,
+            }
+        )
+    return rows
+
+
+def build_official_standings_editor_rows(db: Session):
+    teams = get_visible_teams(db)
+    calculated_rows_by_team_id = {
+        row["team_id"]: row
+        for row in build_calculated_standings_editor_rows(db)
+    }
+    official_rows = (
+        db.query(OfficialStanding)
+        .filter(OfficialStanding.team_id.in_([team.id for team in teams]))
+        .order_by(OfficialStanding.position.asc(), OfficialStanding.id.asc())
+        .all()
+    )
+    official_by_team_id = {standing.team_id: standing for standing in official_rows}
+
+    rows = []
+    for team in teams:
+        standing = official_by_team_id.get(team.id)
+        if standing:
+            row = serialize_official_standing(standing, team)
+            row["source"] = "official"
+            rows.append(row)
+        else:
+            rows.append(calculated_rows_by_team_id[team.id])
+
+    return sorted(
+        rows,
+        key=lambda row: (
+            0 if row["source"] == "official" else 1,
+            int(row["position"]),
+            str(row["team_name"]).casefold(),
+        ),
+    )
+
+
+def save_official_standings_payload(db: Session, payload: OfficialStandingsUpdate):
+    visible_team_ids = {team.id for team in get_visible_teams(db)}
+    seen_team_ids: set[int] = set()
+
+    for row in payload.standings:
+        if row.team_id not in visible_team_ids:
+            raise HTTPException(status_code=400, detail=f"Team {row.team_id} is not visible")
+        if row.team_id in seen_team_ids:
+            raise HTTPException(status_code=400, detail=f"Duplicate standing for team {row.team_id}")
+        seen_team_ids.add(row.team_id)
+        upsert_official_standing(
+            db,
+            team_id=row.team_id,
+            position=row.position,
+            games_played=row.games_played,
+            wins=row.wins,
+            losses=row.losses,
+            winning_percentage=row.winning_percentage,
+            games_behind=row.games_behind,
+            runs_for=row.runs_for,
+            runs_against=row.runs_against,
+            run_differential=row.run_differential,
+            note=row.note,
+        )
+
+    commit_or_raise(db)
+    return build_official_standings_editor_rows(db)
+
+
+@router.get("/standings/official")
+def get_official_standings(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    return build_official_standings_editor_rows(db)
+
+
+@router.put("/standings/official")
+def update_official_standings(
+    payload: OfficialStandingsUpdate,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    return save_official_standings_payload(db, payload)
+
+
+@router.get("/standings/calculated")
+def get_calculated_standings(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    return build_calculated_standings_editor_rows(db)
+
+
+@router.post("/standings/official/reset-week-8")
+def reset_week8_official_standings(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    rows = build_week8_official_seed_rows(get_visible_teams(db))
+    if not rows:
+        raise HTTPException(status_code=400, detail="No visible teams match the Week 8 seed data")
+    return save_official_standings_payload(db, OfficialStandingsUpdate(standings=rows))
+
+
+@router.get("/teams", response_model=list[TeamOut])
+def list_teams(_: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    teams = get_visible_teams(db)
+    standings_view = build_public_standings_view(db, teams)
+    records = standings_view["records"]
+    rank_by_team_id = standings_view["rank_by_team_id"]
+    ordered_teams = standings_view["ordered_teams"]
     return [
         serialize_team(team, records.get(team.id, {}), rank_by_team_id.get(team.id, index + 1))
-        for index, team in enumerate(teams)
+        for index, team in enumerate(ordered_teams)
     ]
 
 
@@ -647,6 +893,9 @@ def delete_team(
         ).delete(synchronize_session=False)
         db.query(Player).filter(Player.team_id == team_id).delete(synchronize_session=False)
 
+    db.query(OfficialStanding).filter(OfficialStanding.team_id == team_id).delete(
+        synchronize_session=False
+    )
     db.delete(team)
     commit_or_raise(db)
     return {"ok": True}
@@ -894,6 +1143,10 @@ def create_game(
         home_score=payload.home_score,
         away_score=payload.away_score,
         status=payload.status,
+        forfeit_winner=normalize_forfeit_winner(payload.forfeit_winner),
+        counts_for_record=payload.counts_for_record,
+        counts_for_runs=payload.counts_for_runs,
+        standings_note=normalize_standings_note(payload.standings_note),
     )
     db.add(game)
     commit_or_raise(db)
@@ -956,6 +1209,14 @@ def update_game(
         game.home_score = payload.home_score
     if "away_score" in fields_set:
         game.away_score = payload.away_score
+    if "forfeit_winner" in fields_set:
+        game.forfeit_winner = normalize_forfeit_winner(payload.forfeit_winner)
+    if "counts_for_record" in fields_set and payload.counts_for_record is not None:
+        game.counts_for_record = payload.counts_for_record
+    if "counts_for_runs" in fields_set and payload.counts_for_runs is not None:
+        game.counts_for_runs = payload.counts_for_runs
+    if "standings_note" in fields_set:
+        game.standings_note = normalize_standings_note(payload.standings_note)
 
     if home_team_id != original_home_team_id or away_team_id != original_away_team_id:
         db.query(PlayerAppearance).filter(PlayerAppearance.game_id == game_id).delete(

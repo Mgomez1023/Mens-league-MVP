@@ -13,7 +13,7 @@ from ..deps import get_current_admin, get_current_user, get_db, require_team_acc
 from ..config import settings
 from ..models import PlayerAppearance, Team, Game, Player, Post, Photo, Season, User
 from ..schemas import PlayerAppearanceSummaryOut, PhotoOut, PostOut, TeamOut
-from ..standings import build_standings_rank_map, compute_team_standings
+from ..standings import build_public_standings_view
 from ..storage import (
     photo_image_path,
     photo_image_url,
@@ -63,6 +63,10 @@ def serialize_game(game: Game):
         "home_score": game.home_score,
         "away_score": game.away_score,
         "status": game.status,
+        "forfeit_winner": game.forfeit_winner,
+        "counts_for_record": game.counts_for_record,
+        "counts_for_runs": game.counts_for_runs,
+        "standings_note": game.standings_note,
     }
 
 
@@ -185,11 +189,13 @@ def build_player_appearance_summary(player_id: int, db: Session):
 @router.get("/teams", response_model=list[TeamOut])
 def list_teams(db: Session = Depends(get_db)):
     teams = db.query(Team).filter(Team.is_visible.is_(True)).order_by(Team.name.asc()).all()
-    records = compute_team_standings(db, [team.id for team in teams])
-    rank_by_team_id = build_standings_rank_map(teams, records)
+    standings_view = build_public_standings_view(db, teams)
+    records = standings_view["records"]
+    rank_by_team_id = standings_view["rank_by_team_id"]
+    ordered_teams = standings_view["ordered_teams"]
     return [
         serialize_team(team, records.get(team.id, {}), rank_by_team_id.get(team.id, index + 1))
-        for index, team in enumerate(teams)
+        for index, team in enumerate(ordered_teams)
     ]
 
 
@@ -755,6 +761,7 @@ def import_games_csv(
             existing.home_score = home_score
             existing.away_score = away_score
             existing.status = status
+            existing.forfeit_winner = None
             updated += 1
         else:
             game = Game(
@@ -769,6 +776,7 @@ def import_games_csv(
                 home_score=home_score,
                 away_score=away_score,
                 status=status,
+                forfeit_winner=None,
             )
             db.add(game)
             created += 1

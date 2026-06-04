@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchGamesPublic, fetchTeamsPublic, resolveApiUrl } from "../api";
+import { fetchTeamsPublic, resolveApiUrl } from "../api";
 import type { Team } from "../api";
 import {
   EmptyState,
@@ -28,12 +28,9 @@ export default function StandingsPage() {
       setLoading(true);
       setError(null);
       try {
-        const [teamData, gameData] = await Promise.all([
-          fetchTeamsPublic(),
-          fetchGamesPublic(),
-        ]);
+        const teamData = await fetchTeamsPublic();
         if (!active) return;
-        setTeams(resolveStandings(teamData, gameData));
+        setTeams(resolveStandings(teamData));
       } catch {
         if (!active) return;
         setError(t("standings.loadError"));

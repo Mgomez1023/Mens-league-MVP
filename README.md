@@ -15,6 +15,13 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
+### API on WIndows
+'''PowerShell
+cd E:\Projects\Mens-league-MVP\apps\api
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --port 8000
+'''
+
 ### Web
 ```bash
 cd apps/web

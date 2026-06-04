@@ -1154,6 +1154,27 @@ body {
   border-bottom: none;
 }
 
+.standings-editor-wrap {
+  margin-top: var(--space-4);
+}
+
+.standings-editor-table th,
+.standings-editor-table td {
+  padding: 0.75rem 0.55rem;
+}
+
+.standings-editor-input {
+  width: 5.25rem;
+  min-width: 0;
+  border: 1px solid rgba(145, 198, 239, 0.48);
+  border-radius: 8px;
+  background: rgba(247, 251, 255, 0.88);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 700;
+  padding: 0.45rem 0.5rem;
+}
+
 .table-team {
   display: flex;
   align-items: center;

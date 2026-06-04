@@ -7,14 +7,18 @@ import {
   PermissionError,
   createTeam,
   deleteTeam,
+  fetchCalculatedStandings,
+  fetchOfficialStandings,
   fetchTeams,
   fetchTeamsPublic,
   getCachedTeams,
   resolveApiUrl,
+  resetWeek8OfficialStandings,
+  saveOfficialStandings,
   updateTeam,
   uploadTeamLogo,
 } from "../api";
-import type { Team } from "../api";
+import type { OfficialStanding, Team } from "../api";
 import {
   EmptyState,
   LoadingState,
@@ -54,6 +58,8 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
   const [formData, setFormData] = useState(emptyForm);
   const [formLogo, setFormLogo] = useState<File | null>(null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [officialStandings, setOfficialStandings] = useState<OfficialStanding[]>([]);
+  const [standingsSaving, setStandingsSaving] = useState(false);
 
   useBodyScrollLock(formOpen);
 
@@ -68,9 +74,12 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
       setEndpointMissing(false);
 
       try {
-        const data = canAdmin ? await fetchTeams() : await fetchTeamsPublic();
+        const [data, standingsData] = canAdmin
+          ? await Promise.all([fetchTeams(), fetchOfficialStandings()])
+          : [await fetchTeamsPublic(), [] as OfficialStanding[]];
         if (!active) return;
         setTeams(sortStandings(data));
+        setOfficialStandings(standingsData);
       } catch (err) {
         if (!active) return;
         if (err instanceof AuthError && canAdmin) {
@@ -276,6 +285,111 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
     setFormLogo(file);
   };
 
+  const refreshAdminTeams = async () => {
+    const data = await fetchTeams();
+    setTeams(sortStandings(data));
+  };
+
+  const handleStandingNumberChange = (
+    teamId: number,
+    field: keyof Pick<
+      OfficialStanding,
+      | "position"
+      | "games_played"
+      | "wins"
+      | "losses"
+      | "winning_percentage"
+      | "games_behind"
+      | "runs_for"
+      | "runs_against"
+      | "run_differential"
+    >,
+    rawValue: string,
+  ) => {
+    const numericValue = field === "winning_percentage" || field === "games_behind"
+      ? Number.parseFloat(rawValue || "0")
+      : Number.parseInt(rawValue || "0", 10);
+    setOfficialStandings((prev) =>
+      prev.map((row) =>
+        row.team_id === teamId
+          ? { ...row, [field]: Number.isFinite(numericValue) ? numericValue : 0 }
+          : row,
+      ),
+    );
+  };
+
+  const handleSaveOfficialStandings = async () => {
+    setStandingsSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const savedRows = await saveOfficialStandings(officialStandings);
+      setOfficialStandings(savedRows);
+      await refreshAdminTeams();
+      setNotice(t("teams.standingsSaved"));
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        return;
+      }
+      if (err instanceof PermissionError) {
+        setError(t("auth.adminAccessRequired"));
+        return;
+      }
+      if (err instanceof ApiError && err.detail) {
+        setError(err.detail);
+        return;
+      }
+      setError(t("teams.standingsSaveError"));
+    } finally {
+      setStandingsSaving(false);
+    }
+  };
+
+  const handleLoadCalculatedStandings = async () => {
+    setStandingsSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const calculatedRows = await fetchCalculatedStandings();
+      setOfficialStandings(calculatedRows);
+      setNotice(t("teams.calculatedStandingsLoaded"));
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        return;
+      }
+      setError(t("teams.standingsLoadError"));
+    } finally {
+      setStandingsSaving(false);
+    }
+  };
+
+  const handleResetWeek8Standings = async () => {
+    if (!window.confirm(t("teams.week8ResetConfirm"))) return;
+    setStandingsSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const resetRows = await resetWeek8OfficialStandings();
+      setOfficialStandings(resetRows);
+      await refreshAdminTeams();
+      setNotice(t("teams.week8ResetComplete"));
+    } catch (err) {
+      if (err instanceof AuthError) {
+        onAuthError();
+        return;
+      }
+      if (err instanceof ApiError && err.detail) {
+        setError(err.detail);
+        return;
+      }
+      setError(t("teams.week8ResetError"));
+    } finally {
+      setStandingsSaving(false);
+    }
+  };
+
   return (
     <section className="page-stack">
       <PageHeader
@@ -309,56 +423,235 @@ export default function TeamsPage({ authed, isAdmin, teamId, onAuthError }: Team
       {!loading && error && <Notice variant="error">{error}</Notice>}
 
       {!loading && !error && !endpointMissing && (
-        <SurfaceCard>
-          <SectionHeader title={t("teams.allTeams")} description="" />
-          {orderedTeams.length === 0 ? (
-            <EmptyState
-              title={t("teams.emptyTitle")}
-              description={t("teams.emptyDescription")}
-            />
-          ) : (
-            <div className="team-grid">
-              {orderedTeams.map((team, index) => (
-                <article className="team-overview-card" key={team.id}>
-                  <div className="team-overview-head">
-                    <div className="team-overview-brand">
-                      <TeamAvatar
-                        name={team.name}
-                        src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
-                        size="lg"
-                      />
-                      <div className="team-overview-copy">
-                        <div className="team-overview-title-row">
-                          <h3>{team.name}</h3>
-                          <div className="team-record-badge">{getRecord(team)}</div>
+        <>
+          {isAdmin && (
+            <SurfaceCard>
+              <SectionHeader
+                title={t("teams.standingsEditorTitle")}
+                description={t("teams.standingsEditorDescription")}
+                action={
+                  <div className="table-actions">
+                    <button
+                      className="button button-secondary button-small"
+                      type="button"
+                      onClick={handleLoadCalculatedStandings}
+                      disabled={standingsSaving}
+                    >
+                      {t("teams.loadCalculatedStandings")}
+                    </button>
+                    <button
+                      className="button button-secondary button-small"
+                      type="button"
+                      onClick={handleResetWeek8Standings}
+                      disabled={standingsSaving}
+                    >
+                      {t("teams.resetWeek8Standings")}
+                    </button>
+                    <button
+                      className="button button-primary button-small"
+                      type="button"
+                      onClick={handleSaveOfficialStandings}
+                      disabled={standingsSaving || officialStandings.length === 0}
+                    >
+                      {standingsSaving ? t("common.saveInProgress") : t("buttons.save")}
+                    </button>
+                  </div>
+                }
+              />
+              {officialStandings.length === 0 ? (
+                <EmptyState
+                  title={t("teams.standingsEditorEmptyTitle")}
+                  description={t("teams.standingsEditorEmptyDescription")}
+                />
+              ) : (
+                <div className="table-wrap standings-editor-wrap">
+                  <table className="league-table standings-editor-table">
+                    <thead>
+                      <tr>
+                        <th>{t("common.team")}</th>
+                        <th>{t("common.position")}</th>
+                        <th>{t("common.gp")}</th>
+                        <th>{t("common.wins")}</th>
+                        <th>{t("common.losses")}</th>
+                        <th>{t("common.pct")}</th>
+                        <th>{t("common.gb")}</th>
+                        <th>{t("common.rf")}</th>
+                        <th>{t("common.ra")}</th>
+                        <th>{t("common.total")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {officialStandings.map((row) => (
+                        <tr key={row.team_id}>
+                          <td data-label={t("common.team")}>
+                            <div className="table-team-name">{row.team_name}</div>
+                            <div className="table-team-meta">
+                              {row.source === "official"
+                                ? t("teams.officialStandingsSource")
+                                : t("teams.calculatedStandingsSource")}
+                            </div>
+                          </td>
+                          <td data-label={t("common.position")}>
+                            <input
+                              className="standings-editor-input"
+                              type="number"
+                              min="1"
+                              value={row.position}
+                              onChange={(event) =>
+                                handleStandingNumberChange(row.team_id, "position", event.target.value)
+                              }
+                            />
+                          </td>
+                          <td data-label={t("common.gp")}>
+                            <input
+                              className="standings-editor-input"
+                              type="number"
+                              min="0"
+                              value={row.games_played}
+                              onChange={(event) =>
+                                handleStandingNumberChange(row.team_id, "games_played", event.target.value)
+                              }
+                            />
+                          </td>
+                          <td data-label={t("common.wins")}>
+                            <input
+                              className="standings-editor-input"
+                              type="number"
+                              min="0"
+                              value={row.wins}
+                              onChange={(event) =>
+                                handleStandingNumberChange(row.team_id, "wins", event.target.value)
+                              }
+                            />
+                          </td>
+                          <td data-label={t("common.losses")}>
+                            <input
+                              className="standings-editor-input"
+                              type="number"
+                              min="0"
+                              value={row.losses}
+                              onChange={(event) =>
+                                handleStandingNumberChange(row.team_id, "losses", event.target.value)
+                              }
+                            />
+                          </td>
+                          <td data-label={t("common.pct")}>
+                            <input
+                              className="standings-editor-input"
+                              type="number"
+                              min="0"
+                              max="1"
+                              step="0.001"
+                              value={row.winning_percentage}
+                              onChange={(event) =>
+                                handleStandingNumberChange(row.team_id, "winning_percentage", event.target.value)
+                              }
+                            />
+                          </td>
+                          <td data-label={t("common.gb")}>
+                            <input
+                              className="standings-editor-input"
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              value={row.games_behind}
+                              onChange={(event) =>
+                                handleStandingNumberChange(row.team_id, "games_behind", event.target.value)
+                              }
+                            />
+                          </td>
+                          <td data-label={t("common.rf")}>
+                            <input
+                              className="standings-editor-input"
+                              type="number"
+                              min="0"
+                              value={row.runs_for}
+                              onChange={(event) =>
+                                handleStandingNumberChange(row.team_id, "runs_for", event.target.value)
+                              }
+                            />
+                          </td>
+                          <td data-label={t("common.ra")}>
+                            <input
+                              className="standings-editor-input"
+                              type="number"
+                              min="0"
+                              value={row.runs_against}
+                              onChange={(event) =>
+                                handleStandingNumberChange(row.team_id, "runs_against", event.target.value)
+                              }
+                            />
+                          </td>
+                          <td data-label={t("common.total")}>
+                            <input
+                              className="standings-editor-input"
+                              type="number"
+                              value={row.run_differential}
+                              onChange={(event) =>
+                                handleStandingNumberChange(row.team_id, "run_differential", event.target.value)
+                              }
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </SurfaceCard>
+          )}
+
+          <SurfaceCard>
+            <SectionHeader title={t("teams.allTeams")} description="" />
+            {orderedTeams.length === 0 ? (
+              <EmptyState
+                title={t("teams.emptyTitle")}
+                description={t("teams.emptyDescription")}
+              />
+            ) : (
+              <div className="team-grid">
+                {orderedTeams.map((team, index) => (
+                  <article className="team-overview-card" key={team.id}>
+                    <div className="team-overview-head">
+                      <div className="team-overview-brand">
+                        <TeamAvatar
+                          name={team.name}
+                          src={team.logo_url ? resolveApiUrl(team.logo_url) : null}
+                          size="lg"
+                        />
+                        <div className="team-overview-copy">
+                          <div className="team-overview-title-row">
+                            <h3>{team.name}</h3>
+                            <div className="team-record-badge">{getRecord(team)}</div>
+                          </div>
+                          <p className="team-rank">{t("teams.rankLabel", { count: index + 1 })}</p>
                         </div>
-                        <p className="team-rank">{t("teams.rankLabel", { count: index + 1 })}</p>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="team-card-actions">
-                    <Link className="button button-secondary button-small" to={`/teams/${team.id}/roster`}>
-                      {t("buttons.viewRoster")}
-                    </Link>
-                    {managedTeamId === team.id ? (
-                      <span className="team-manager-badge">{t("auth.managerForThisTeam")}</span>
-                    ) : null}
-                    {isAdmin && (
-                      <button
-                        className="button button-secondary button-small"
-                        type="button"
-                        onClick={() => openEditForm(team)}
-                      >
-                        {t("buttons.edit")}
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </SurfaceCard>
+                    <div className="team-card-actions">
+                      <Link className="button button-secondary button-small" to={`/teams/${team.id}/roster`}>
+                        {t("buttons.viewRoster")}
+                      </Link>
+                      {managedTeamId === team.id ? (
+                        <span className="team-manager-badge">{t("auth.managerForThisTeam")}</span>
+                      ) : null}
+                      {isAdmin && (
+                        <button
+                          className="button button-secondary button-small"
+                          type="button"
+                          onClick={() => openEditForm(team)}
+                        >
+                          {t("buttons.edit")}
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </SurfaceCard>
+        </>
       )}
 
       {isAdmin && formOpen && (

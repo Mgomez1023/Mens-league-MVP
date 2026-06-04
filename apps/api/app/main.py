@@ -7,10 +7,11 @@ from .config import settings
 from .db import Base, engine, SessionLocal
 from datetime import date
 
-from .models import Game, PlayerAppearance, Season, Team, User
+from .models import Game, OfficialStanding, PlayerAppearance, Season, Team, User
 from .security import hash_password
 from sqlalchemy import inspect, text
 import re
+from .standings import build_week8_official_seed_rows
 
 from .routers.auth import router as auth_router
 from .routers.admin import router as admin_router
@@ -109,6 +110,14 @@ def ensure_game_columns():
             if not needs_rebuild:
                 if "time" not in columns:
                     conn.execute(text("ALTER TABLE games ADD COLUMN time VARCHAR"))
+                if "forfeit_winner" not in columns:
+                    conn.execute(text("ALTER TABLE games ADD COLUMN forfeit_winner VARCHAR"))
+                if "counts_for_record" not in columns:
+                    conn.execute(text("ALTER TABLE games ADD COLUMN counts_for_record BOOLEAN NOT NULL DEFAULT 1"))
+                if "counts_for_runs" not in columns:
+                    conn.execute(text("ALTER TABLE games ADD COLUMN counts_for_runs BOOLEAN NOT NULL DEFAULT 1"))
+                if "standings_note" not in columns:
+                    conn.execute(text("ALTER TABLE games ADD COLUMN standings_note VARCHAR"))
                 return
 
             conn.execute(text("PRAGMA foreign_keys=OFF"))
@@ -128,7 +137,11 @@ def ensure_game_columns():
                         away_team_name VARCHAR,
                         home_score INTEGER,
                         away_score INTEGER,
-                        status VARCHAR NOT NULL
+                        status VARCHAR NOT NULL,
+                        forfeit_winner VARCHAR,
+                        counts_for_record BOOLEAN NOT NULL DEFAULT 1,
+                        counts_for_runs BOOLEAN NOT NULL DEFAULT 1,
+                        standings_note VARCHAR
                     )
                     """
                 )
@@ -148,7 +161,11 @@ def ensure_game_columns():
                         away_team_name,
                         home_score,
                         away_score,
-                        status
+                        status,
+                        forfeit_winner,
+                        counts_for_record,
+                        counts_for_runs,
+                        standings_note
                     )
                     SELECT
                         id,
@@ -162,7 +179,11 @@ def ensure_game_columns():
                         NULL,
                         home_score,
                         away_score,
-                        status
+                        status,
+                        NULL,
+                        1,
+                        1,
+                        NULL
                     FROM games_old
                     """
                 )
@@ -179,6 +200,14 @@ def ensure_game_columns():
         statements.append("ALTER TABLE games ADD COLUMN home_team_name VARCHAR")
     if "away_team_name" not in columns:
         statements.append("ALTER TABLE games ADD COLUMN away_team_name VARCHAR")
+    if "forfeit_winner" not in columns:
+        statements.append("ALTER TABLE games ADD COLUMN forfeit_winner VARCHAR")
+    if "counts_for_record" not in columns:
+        statements.append("ALTER TABLE games ADD COLUMN counts_for_record BOOLEAN NOT NULL DEFAULT TRUE")
+    if "counts_for_runs" not in columns:
+        statements.append("ALTER TABLE games ADD COLUMN counts_for_runs BOOLEAN NOT NULL DEFAULT TRUE")
+    if "standings_note" not in columns:
+        statements.append("ALTER TABLE games ADD COLUMN standings_note VARCHAR")
 
     with engine.begin() as conn:
         for statement in statements:
@@ -445,6 +474,32 @@ def seed_auth_users():
         db.close()
 
 run_startup_step(seed_auth_users)
+
+
+def seed_week8_official_standings():
+    db: Session = SessionLocal()
+    try:
+        if db.query(OfficialStanding).count() > 0:
+            return
+
+        teams = (
+            db.query(Team)
+            .filter(Team.is_visible.is_(True))
+            .order_by(Team.name.asc())
+            .all()
+        )
+        rows = build_week8_official_seed_rows(teams)
+        if not rows:
+            return
+
+        for row in rows:
+            db.add(OfficialStanding(**row))
+        db.commit()
+    finally:
+        db.close()
+
+
+run_startup_step(seed_week8_official_standings)
 
 app.include_router(auth_router)
 app.include_router(public_router)

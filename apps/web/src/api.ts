@@ -19,6 +19,24 @@ export type Team = {
   logo_url?: string | null;
 };
 
+export type OfficialStanding = {
+  id?: number | null;
+  team_id: number;
+  team_name: string;
+  position: number;
+  games_played: number;
+  wins: number;
+  losses: number;
+  winning_percentage: number;
+  games_behind: number;
+  runs_for: number;
+  runs_against: number;
+  run_differential: number;
+  note?: string | null;
+  source?: "official" | "calculated";
+  updated_at?: string | null;
+};
+
 export type UserRole = "admin" | "manager";
 
 export type Game = {
@@ -40,6 +58,10 @@ export type Game = {
   home_score?: number | null;
   away_score?: number | null;
   status: string;
+  forfeit_winner?: "HOME" | "AWAY" | null;
+  counts_for_record?: boolean;
+  counts_for_runs?: boolean;
+  standings_note?: string | null;
 };
 
 export type Player = {
@@ -292,6 +314,32 @@ export async function fetchTeams() {
   return data;
 }
 
+export async function fetchOfficialStandings() {
+  const res = await authenticatedFetch(`${API_BASE}/admin/standings/official`);
+  return res.json() as Promise<OfficialStanding[]>;
+}
+
+export async function fetchCalculatedStandings() {
+  const res = await authenticatedFetch(`${API_BASE}/admin/standings/calculated`);
+  return res.json() as Promise<OfficialStanding[]>;
+}
+
+export async function saveOfficialStandings(standings: OfficialStanding[]) {
+  const res = await authenticatedFetch(`${API_BASE}/admin/standings/official`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ standings }),
+  });
+  return res.json() as Promise<OfficialStanding[]>;
+}
+
+export async function resetWeek8OfficialStandings() {
+  const res = await authenticatedFetch(`${API_BASE}/admin/standings/official/reset-week-8`, {
+    method: "POST",
+  });
+  return res.json() as Promise<OfficialStanding[]>;
+}
+
 export async function createTeam(payload: { name: string; home_field?: string | null }) {
   const res = await authenticatedFetch(`${API_BASE}/admin/teams`, {
     method: "POST",
@@ -369,6 +417,10 @@ export async function createGame(payload: {
   status?: string;
   home_score?: number | null;
   away_score?: number | null;
+  forfeit_winner?: "HOME" | "AWAY" | null;
+  counts_for_record?: boolean;
+  counts_for_runs?: boolean;
+  standings_note?: string | null;
 }) {
   const res = await authenticatedFetch(`${API_BASE}/admin/games`, {
     method: "POST",
@@ -391,6 +443,10 @@ export async function updateGame(
     status: string;
     home_score: number | null;
     away_score: number | null;
+    forfeit_winner: "HOME" | "AWAY" | null;
+    counts_for_record: boolean;
+    counts_for_runs: boolean;
+    standings_note: string | null;
   }>,
 ) {
   const res = await authenticatedFetch(`${API_BASE}/admin/games/${gameId}`, {

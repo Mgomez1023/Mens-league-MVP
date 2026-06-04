@@ -1,6 +1,6 @@
 from sqlalchemy import (
     String, Integer, Date, DateTime, Text, ForeignKey, Boolean, LargeBinary,
-    UniqueConstraint
+    Float, UniqueConstraint
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import datetime
@@ -34,6 +34,32 @@ class Team(Base):
 
     players: Mapped[list["Player"]] = relationship(back_populates="team")
     appearances: Mapped[list["PlayerAppearance"]] = relationship(back_populates="team")
+    official_standing: Mapped["OfficialStanding | None"] = relationship(back_populates="team")
+
+
+class OfficialStanding(Base):
+    __tablename__ = "official_standings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False, index=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    games_played: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    wins: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    losses: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    winning_percentage: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    games_behind: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    runs_for: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    runs_against: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    run_differential: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.datetime.utcnow
+    )
+
+    team: Mapped[Team] = relationship(back_populates="official_standing")
+
+    __table_args__ = (
+        UniqueConstraint("team_id", name="uq_official_standings_team"),
+    )
 
 class Player(Base):
     __tablename__ = "players"
@@ -71,6 +97,10 @@ class Game(Base):
     home_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     away_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String, default="SCHEDULED")  # SCHEDULED|FINAL
+    forfeit_winner: Mapped[str | None] = mapped_column(String, nullable=True)  # HOME|AWAY
+    counts_for_record: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    counts_for_runs: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    standings_note: Mapped[str | None] = mapped_column(String, nullable=True)
     appearances: Mapped[list["PlayerAppearance"]] = relationship(back_populates="game")
 
 

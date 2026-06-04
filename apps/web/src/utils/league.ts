@@ -1,15 +1,6 @@
 import i18n, { getCurrentLocale } from "../i18n";
 import type { Game, Team } from "../api";
 
-const FINAL_STANDINGS_STATUS_TOKENS = ["FINAL", "COMPLETE", "COMPLETED", "FINISHED"];
-const NON_FINAL_STANDINGS_STATUSES = new Set([
-  "SCHEDULED",
-  "IN PROGRESS",
-  "IN_PROGRESS",
-  "POSTPONED",
-  "CANCELLED",
-]);
-
 function firstNonEmpty(...values: Array<string | null | undefined>) {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) {
@@ -207,114 +198,19 @@ export function sortStandings(teams: Team[]) {
   });
 }
 
-function isFinalStandingsGame(game: Pick<Game, "status" | "home_score" | "away_score">) {
-  if (game.home_score == null || game.away_score == null) return false;
-  const normalizedStatus = (game.status ?? "").trim().toUpperCase();
-  if (!normalizedStatus) return true;
-  if (NON_FINAL_STANDINGS_STATUSES.has(normalizedStatus)) return false;
-  return FINAL_STANDINGS_STATUS_TOKENS.some((token) => normalizedStatus.includes(token));
-}
-
-function applyStandingsRanks(teams: Team[]) {
-  let previousRank = 0;
-  let previousKey: string | null = null;
-
-  return sortStandings(teams).map((team, index) => {
-    const key = `${team.winning_percentage ?? 0}:${team.wins ?? 0}:${team.losses ?? 0}:${team.run_differential ?? 0}`;
-    const rank = key === previousKey ? previousRank : index + 1;
-    previousRank = rank;
-    previousKey = key;
-    return { ...team, rank };
-  });
-}
-
-function hasComputedStandings(team: Team) {
-  return (
-    typeof team.games_played === "number" &&
-    typeof team.winning_percentage === "number" &&
-    typeof team.games_behind === "number" &&
-    typeof team.runs_for === "number" &&
-    typeof team.runs_against === "number" &&
-    typeof team.run_differential === "number"
-  );
-}
-
-export function resolveStandings(teams: Team[], games: Game[]) {
-  if (teams.every(hasComputedStandings)) {
-    return applyStandingsRanks(teams);
-  }
-
-  const standingsMap = new Map<number, Team>(
-    teams.map((team) => [
-      team.id,
-      {
-        ...team,
-        rank: undefined,
-        games_played: 0,
-        wins: 0,
-        losses: 0,
-        winning_percentage: 0,
-        games_behind: 0,
-        runs_for: 0,
-        runs_against: 0,
-        run_differential: 0,
-      },
-    ]),
-  );
-
-  for (const game of games) {
-    if (!isFinalStandingsGame(game)) continue;
-    if (game.home_score == null || game.away_score == null) continue;
-
-    const homeTeam = game.home_team_id == null ? undefined : standingsMap.get(game.home_team_id);
-    const awayTeam = game.away_team_id == null ? undefined : standingsMap.get(game.away_team_id);
-    const homeScore = game.home_score;
-    const awayScore = game.away_score;
-
-    if (homeTeam) {
-      applyTeamGameResult(homeTeam, homeScore, awayScore);
-    }
-    if (awayTeam) {
-      applyTeamGameResult(awayTeam, awayScore, homeScore);
-    }
-  }
-
-  const computedTeams = [...standingsMap.values()].map((team) => {
-    const gamesPlayed = team.games_played ?? 0;
-    const runsFor = team.runs_for ?? 0;
-    const runsAgainst = team.runs_against ?? 0;
-    return {
-      ...team,
-      winning_percentage: gamesPlayed > 0 ? (team.wins ?? 0) / gamesPlayed : 0,
-      run_differential: runsFor - runsAgainst,
-    };
-  });
-
-  return applyStandingsRanks(applyGamesBehind(computedTeams));
-}
-
-function applyTeamGameResult(team: Team, runsFor: number, runsAgainst: number) {
-  team.games_played = (team.games_played ?? 0) + 1;
-  team.runs_for = (team.runs_for ?? 0) + runsFor;
-  team.runs_against = (team.runs_against ?? 0) + runsAgainst;
-  if (runsFor > runsAgainst) {
-    team.wins = (team.wins ?? 0) + 1;
-  } else if (runsAgainst > runsFor) {
-    team.losses = (team.losses ?? 0) + 1;
-  }
-}
-
-function applyGamesBehind(teams: Team[]) {
-  if (!teams.some((team) => (team.games_played ?? 0) > 0)) {
-    return teams.map((team) => ({ ...team, games_behind: 0 }));
-  }
-
-  const [leader] = sortStandings(teams);
-  return teams.map((team) => ({
+export function resolveStandings(teams: Team[], games: Game[] = []) {
+  void games;
+  return teams.map((team, index) => ({
     ...team,
-    games_behind:
-      (((leader.wins ?? 0) - (team.wins ?? 0))
-        + ((team.losses ?? 0) - (leader.losses ?? 0))) / 2,
+    rank: team.rank ?? index + 1,
+    games_played: team.games_played ?? 0,
+    wins: team.wins ?? 0,
+    losses: team.losses ?? 0,
+    winning_percentage: team.winning_percentage ?? 0,
+    games_behind: team.games_behind ?? 0,
+    runs_for: team.runs_for ?? 0,
+    runs_against: team.runs_against ?? 0,
+    run_differential: team.run_differential ?? 0,
   }));
 }
 
