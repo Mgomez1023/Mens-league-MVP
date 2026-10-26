@@ -22,6 +22,10 @@
         {
           "key": "Referrer-Policy",
           "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: https://mens-league-back.vercel.app; connect-src 'self' https://mens-league-back.vercel.app; frame-src https://www.facebook.com; form-action 'self'"
         }
       ]
     }
