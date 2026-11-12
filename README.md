@@ -6,7 +6,7 @@ This repo is a monorepo with:
 
 ## Local Development
 
-### API
+### API / Backend
 ```bash
 cd apps/api
 python3 -m venv .venv
@@ -15,14 +15,14 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-### API on WIndows
+### API / Backend on WIndows
 '''PowerShell
 cd E:\Projects\Mens-league-MVP\apps\api
 python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 '''
 
-### Web
+### Web / Frontend
 ```bash
 cd apps/web
 npm install
@@ -36,32 +36,7 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 
 ## Vercel Deployment
 
-Deploy as two Vercel projects so both frontend and backend are always reachable.
-
-### 1) Deploy backend (`apps/api`)
-
-1. Create a Vercel project with Root Directory set to `apps/api`.
-2. Add environment variables in Vercel (Production, Preview, Development):
-   - `DATABASE_URL` (use a persistent Postgres URL, not SQLite)
-   - `JWT_SECRET`
-   - `JWT_ALG=HS256`
-   - `JWT_EXPIRES_MIN=720`
-   - `CORS_ALLOW_ORIGINS=https://<your-web-domain>.vercel.app`
-   - `ADMIN_EMAIL`
-   - `ADMIN_PASSWORD`
-   - Optional: `UPLOADS_DIR=/tmp/uploads`
-3. Deploy and note API URL, e.g. `https://mens-league-api.vercel.app`.
-
-The backend Vercel config is in `apps/api/vercel.json`.
-
-### 2) Deploy frontend (`apps/web`)
-
-1. Create a second Vercel project with Root Directory set to `apps/web`.
-2. Add env var:
-   - `VITE_API_BASE_URL=https://<your-api-domain>.vercel.app`
-3. Deploy and open your web URL.
-
-The frontend Vercel config is in `apps/web/vercel.json` and includes an SPA rewrite to `index.html`.
+Deployed as two Vercel projects so both frontend and backend are always reachable.
 
 ## Notes
 
