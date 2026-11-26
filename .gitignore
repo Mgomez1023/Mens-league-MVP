@@ -1,2 +1,7 @@
 .vercel
 .env*.local
+<<<<<<< Updated upstream
+=======
+.pytest_cache/
+.CSV/
+>>>>>>> Stashed changes

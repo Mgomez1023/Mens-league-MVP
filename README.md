@@ -1,44 +1,28 @@
-# Men's League MVP
+# ⚾ Benito Juarez Men's League Platform
 
-This repo is a monorepo with:
-- `apps/api`: FastAPI backend
-- `apps/web`: React + Vite frontend
+> Live at [benitojuarezbaseball.com](https://benitojuarezbaseball.com)
 
-## Local Development
+![Homepage screenshot](docs/screenshots/home.png)
 
-### API / Backend
-```bash
-cd apps/api
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
+## Overview
 
-### API / Backend on WIndows
-'''PowerShell
-cd E:\Projects\Mens-league-MVP\apps\api
-python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --reload --port 8000
-'''
+Benito Juarez Men's League is a 10-team baseball league with roughly 15–20 players per team, along with team managers and league administrators. Before the platform, league information and operations were spread across manual processes and separate communications, making it harder to keep schedules, rosters, and updates in one place. I built a central website where players can follow the league and managers and admins can handle league operations online.
 
-### Web / Frontend
-```bash
-cd apps/web
-npm install
-npm run dev
-```
+## Features
 
-If needed, set `apps/web/.env`:
-```env
-VITE_API_BASE_URL=http://127.0.0.1:8000
-```
+- Public schedules, standings, team rosters, and league announcements.
+- Mobile-friendly pages for players and fans.
+- Manager accounts and role-based access for team and league operations.
+- Admin tools for maintaining league information and managing updates.
+- Lineup and roster workflows, including CSV imports.
+- Photo uploads and team imagery.
 
-## Vercel Deployment
+## How I Built It
 
-Deployed as two Vercel projects so both frontend and backend are always reachable.
+The frontend uses React and TypeScript, and the API is built with FastAPI. PostgreSQL, hosted on Neon, stores the league data. The frontend and backend are deployed as separate Vercel projects, with the frontend calling the API for data and authenticated operations.
 
-## Notes
-
-- Do not use SQLite in Vercel production; serverless filesystem is not persistent.
-- Uploaded images are written to `UPLOADS_DIR` and are ephemeral on Vercel unless replaced with external object storage.
+```mermaid
+flowchart LR
+    U[Players, managers, admins] --> W[React + TypeScript frontend]
+    W --> A[FastAPI backend]
+    A --> D[Neon PostgreSQL]
