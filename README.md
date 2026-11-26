@@ -6,7 +6,7 @@
 
 ## Overview
 
-Benito Juarez Men's League is a 10-team baseball league with roughly 15–20 players per team, along with team managers and league administrators. Before the platform, league information and operations were spread across manual processes and separate communications, making it harder to keep schedules, rosters, and updates in one place. I built a central website where players can follow the league and managers and admins can handle league operations online.
+Benito Juarez Men's League is a 10-team baseball league with roughly 15–20 players per team, along with team managers and league administrators. Before the platform, league information and operations were spread across group chats and social media posts, making it harder to keep schedules, rosters, and updates in one place. I built a central website where players can follow the league and managers and admins can handle league operations online.
 
 ## Features
 
