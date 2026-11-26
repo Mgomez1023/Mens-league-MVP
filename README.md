@@ -26,7 +26,7 @@ flowchart LR
     U[Players, managers, admins] --> W[React + TypeScript frontend]
     W --> A[FastAPI backend]
     A --> D[Neon PostgreSQL]
-'''
+```
 
 I chose a separate API so the web interface and data operations could evolve independently. PostgreSQL provides persistent shared data for league users, while TypeScript helps keep the frontend's data handling consistent.
 
